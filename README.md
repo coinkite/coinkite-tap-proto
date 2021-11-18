@@ -1,5 +1,5 @@
 # Coinkite Tap Protocol
 
-1. the protocol specification
-2. python library to talking it
-3. (maybe) examples/libraries in other languages
+1. The protocol specification
+2. Python library for speaking the protocol
+3. (maybe) Examples/libraries in other languages
