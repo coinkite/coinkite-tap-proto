@@ -1,0 +1,22 @@
+# Requirements both for emulator and test cases.
+pytest
+cbor2>=5.4.1
+bech32>=1.2.0
+pyqrcode>=1.2.1
+
+pyscard==2.0.2
+
+# optional?
+coincurve==15.0.1
+bip32==2.1
+
+# alternative?
+wallycore==0.8.4
+
+#secp256k1==0.14.0
+
+base58==2.1.1
+
+# for CLI command option parsing
+click==8.0.3
+

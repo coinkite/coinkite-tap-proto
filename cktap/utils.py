@@ -1,0 +1,123 @@
+# (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
+#
+import os, base58, bech32, hashlib
+from binascii import b2a_hex, a2b_hex
+from constants import *
+from compat import hash160, sha256s
+from compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair, CT_bip32_derive
+
+# show bytes as hex in a string
+B2A = lambda x: b2a_hex(x).decode('ascii')
+
+def xor_bytes(a, b):
+    # XOR the bytes of A and B
+    assert len(a) == len(b)
+    return bytes(i^j for i,j in zip(a,b))
+
+def pick_nonce():
+    # pick a nonce for our side
+    return os.urandom(USER_NONCE_SIZE)
+
+def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
+    # Verify the certificate chain works, returns label for pubkey recovered from signatures.
+    # - raises on any verification issue
+    #
+    signatures = certs_resp['cert_chain']
+    assert len(signatures) >= 2
+
+    r = status_resp
+    msg = b'OPENDIME' + r['card_nonce'] + my_nonce
+    assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
+    pubkey = r['pubkey']
+
+    ok = CT_sig_verify(pubkey, sha256s(msg), check_resp['auth_sig'])
+    if not ok:
+        raise RuntimeError("bad sig in verify_certs")
+
+    for sig in signatures:
+        pubkey = CT_sig_to_pubkey(sha256s(pubkey), sig)
+
+    if pubkey not in FACTORY_ROOT_KEYS:
+        # fraud
+        raise RuntimeError("root cert is not Coinkite")
+
+    return FACTORY_ROOT_KEYS[pubkey]
+
+def recover_address(status_resp, read_resp, my_nonce):
+    # Given the response from "status" and "read" commands, and the nonce we gave for read command,
+    # reconstruct the card's verified payment address. Check prefix/suffix match what's expected
+    r = status_resp
+
+    expect = status_resp['addr']
+    left = expect[0:expect.find('_')]
+    right = expect[expect.rfind('_')+1:]
+
+    msg = b'OPENDIME' + status_resp['card_nonce'] + my_nonce + bytes([status_resp['slots'][0]])
+    assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE + 1
+
+    pubkey = read_resp['pubkey']
+
+    # Critical: proves card knows key
+    ok = CT_sig_verify(pubkey, sha256s(msg), read_resp['sig'])
+    if not ok:
+        raise RuntimeError("bad sig")
+
+    # Critical: counterfieting check
+    addr = render_address(pubkey, r.get('testnet', False))
+    if not (addr.startswith(left)
+                and addr.endswith(right)
+                and len(left) == len(right) == ADDR_TRIM):
+        raise RuntimeError("corrupt response")
+
+    return addr
+
+def calc_xcvc(card_nonce, his_pubkey, cvc):
+    # Calcuate session key and xcvc value need for auth'ed commands
+    # - also picks an arbitrary keypair for my side of the ECDH?
+    # - requires pubkey from card and proposed CVC value
+    assert 6 <= len(cvc) <= 32
+
+    if isinstance(cvc, str):
+        cvc = cvc.encode('ascii')
+
+    # fresh new ephemeral key for our side of connection
+    my_privkey, my_pubkey = CT_pick_keypair()
+
+    # standard ECDH
+    # - result is sha256s(compressed shared point (33 bytes))
+    session_key = CT_ecdh(my_privkey, his_pubkey)
+
+    mask = xor_bytes(session_key, sha256s(card_nonce))[0:len(cvc)]
+    xcvc = xor_bytes(cvc, mask)
+
+    return my_pubkey, session_key, xcvc
+
+def render_address(pubkey, testnet=False):
+    # make the text string used as a payment address
+    HRP = 'bc' if not testnet else 'tb'
+    return bech32.encode(HRP, 0, hash160(pubkey))
+
+def verify_master_pubkey(pub, sig, chain_code, my_nonce, card_nonce):
+    # using signature response from 'deriv' command, recover the master pubkey
+    # for this slot
+    msg = b'OPENDIME' + card_nonce + my_nonce + chain_code
+    assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE + 32
+
+    ok = CT_sig_verify(pub, sha256s(msg), sig)
+    if not ok:
+        raise RuntimeError("bad sig")
+
+    return pub
+
+def verify_derive_address(chain_code, master_pub, testnet=False):
+    # re-derive the address we should expect
+    # - this is "m/0" in BIP-32 nomenclature
+    # - accepts master public key (before unseal) or master private key (after)
+    pubkey = CT_bip32_derive(chain_code, master_pub, [0])
+
+    return render_address(pubkey, testnet=testnet), pubkey
+
+    
+
+
+# EOF
