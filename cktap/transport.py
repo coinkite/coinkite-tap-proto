@@ -8,8 +8,8 @@
 import sys, os, cbor2
 from binascii import b2a_hex, a2b_hex
 from hashlib import sha256
-from utils import *
-from constants import *
+from .utils import *
+from .constants import *
 
 # single-shot SHA256
 sha256s = lambda msg: sha256(msg).digest()
@@ -60,6 +60,7 @@ class CKTapDeviceBase:
         self.card_version = st['ver']
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
+        self.active_slot, self.num_slots = st['slots']
         assert self.card_nonce      # self.send() will have captured from first status req
 
         #print(f"Connected to: pubkey={B2A(self.pubkey)}")
@@ -75,6 +76,20 @@ class CKTapDeviceBase:
     def _nfc_read(self):
         # TODO?
         raise NotImplementedError
+
+    def send_auth(self, cmd, cvc, **args):
+        # clean up, do crypto and provide the CVC in encrypted form
+        # - returns session key and usual results
+        # - skip if CVC is none, just do normal stuff
+
+        if cvc:
+            cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
+            session_key, auth_args = calc_xcvc(self.card_nonce, self.pubkey, cvc)
+            args.update(auth_args)
+        else:
+            session_key = None
+
+        return session_key, self.send(cmd, **args)
 
     def send(self, cmd, raise_on_error=True, **args):
         # Serialize command, send it as ADPU, get response and decode
@@ -117,17 +132,18 @@ class CKTapDeviceBase:
         return resp
 
     # Wrappers / helpers
-    def address(self, faster=False):
+    def address(self, faster=False, incl_pubkey=False):
         # Get current payment address for card
         # - does 100% full verification by default
         st = self.send('status')
         if 'addr' not in st:
-            raise ValueError("Current slot is not yet setup.")
+            #raise ValueError("Current slot is not yet setup.")
+            return None
 
         n = pick_nonce()
         rr = self.send('read', nonce=n)
         
-        addr = recover_address(st, rr, n)
+        pubkey, addr = recover_address(st, rr, n)
 
         if not faster:
             # additional check
@@ -139,6 +155,9 @@ class CKTapDeviceBase:
             derived_addr,_ = verify_derive_address(rr['chain_code'], master_pub,
                                                         testnet=self.is_testnet)
             assert derived_addr == addr
+
+        if incl_pubkey:
+            return pubkey, addr
 
         return addr
 

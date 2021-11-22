@@ -10,13 +10,11 @@ from coincurve.ecdsa import deserialize_compact, serialize_compact, der_to_cdata
 from coincurve import PrivateKey, PublicKey
 
 def CT_sig_verify(pub, msg_digest, sig):
-    # XXX need some compact->der here
     assert len(sig) == 64
     der = cdata_to_der(deserialize_compact(sig))
     return PublicKey(pub).verify(der, msg_digest, hasher=None)
 
 def CT_sig_to_pubkey(msg_digest, sig):
-    # XXX need some recoverable compact->der here
     assert len(sig) == 65
     nxt = PublicKey.from_signature_and_message(sig, msg_digest, hasher=None)
     return nxt.format()
@@ -37,6 +35,9 @@ def CT_sign(privkey, msg_digest, recoverable=False):
         der = pk.sign(msg_digest, hasher=None)
         return serialize_compact(der_to_cdata(der))
 
+def CT_priv_to_pubkey(priv):
+    pk = PrivateKey(privkey)
+    return pk.public_key.format()
 
 def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     from bip32 import BIP32

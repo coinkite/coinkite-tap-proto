@@ -15,6 +15,8 @@ def test_wrap():
     #'CT_pick_keypair', 'CT_bip32_derive'
 
     pk, pub = CT_pick_keypair()
+    assert CT_priv_to_pubkey(pk) == pub
+
     md = bytes(32)
 
     s1 = CT_sign(pk, md)

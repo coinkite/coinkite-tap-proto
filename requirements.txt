@@ -6,14 +6,12 @@ pyqrcode>=1.2.1
 
 pyscard==2.0.2
 
-# optional?
-coincurve==15.0.1
-bip32==2.1
+# supported, but not prefered
+#coincurve==15.0.1
+#bip32==2.1
 
-# alternative?
+# currently prefered crypto API
 wallycore==0.8.4
-
-#secp256k1==0.14.0
 
 base58==2.1.1
 

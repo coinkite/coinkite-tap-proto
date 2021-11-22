@@ -2,9 +2,10 @@
 #
 import os, base58, bech32, hashlib
 from binascii import b2a_hex, a2b_hex
-from constants import *
-from compat import hash160, sha256s
-from compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair, CT_bip32_derive
+from .constants import *
+from .compat import hash160, sha256s
+from .compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair
+from .compat import CT_bip32_derive, CT_priv_to_pubkey
 
 # show bytes as hex in a string
 B2A = lambda x: b2a_hex(x).decode('ascii')
@@ -69,7 +70,7 @@ def recover_address(status_resp, read_resp, my_nonce):
                 and len(left) == len(right) == ADDR_TRIM):
         raise RuntimeError("corrupt response")
 
-    return addr
+    return pubkey, addr
 
 def calc_xcvc(card_nonce, his_pubkey, cvc):
     # Calcuate session key and xcvc value need for auth'ed commands
@@ -85,17 +86,50 @@ def calc_xcvc(card_nonce, his_pubkey, cvc):
 
     # standard ECDH
     # - result is sha256s(compressed shared point (33 bytes))
-    session_key = CT_ecdh(my_privkey, his_pubkey)
+    session_key = CT_ecdh(his_pubkey, my_privkey)
 
     mask = xor_bytes(session_key, sha256s(card_nonce))[0:len(cvc)]
     xcvc = xor_bytes(cvc, mask)
 
-    return my_pubkey, session_key, xcvc
+    return session_key, dict(epubkey=my_pubkey, xcvc=xcvc)
 
 def render_address(pubkey, testnet=False):
     # make the text string used as a payment address
+
+    if len(pubkey) == 32:
+        # actually a private key, convert
+        pubkey = CT_priv_to_pubkey(pubkey)
+
     HRP = 'bc' if not testnet else 'tb'
     return bech32.encode(HRP, 0, hash160(pubkey))
+
+def render_wif(privkey, bip_178=False, electrum=False, testnet=False):
+    # Show the WIF in useful text format (base58)
+    # - we are always trying to do bech32/segwit but hard to communicate that
+    # - BIP-178 not accepted by community nor Core
+    # - electrum adds a prefix for humans (decent)
+    # - Core 22.0 does not seem to correct bech32 import (assumes legacy? does all, IDK)
+    assert len(privkey) == 32
+    assert (bip_178 or electrum) or not any([bip_178, electrum])
+
+    prefix = bytes([0x80 if not testnet else 0xef])
+    suffix = bytes([0x01 if not bip_178 else 0x11])
+
+    rv = base58.b58encode_check(prefix + privkey + suffix).decode('ascii')
+
+    return ('p2wpkh:' + rv) if electrum else rv
+
+def render_descriptor(address=None, privkey=None, bip_178=False, electrum=False, testnet=False):
+    # Create a "descriptor" for Core to understand.
+    assert address or privkey
+    if privkey:
+        rv = 'wpkh(%s)' % render_wif(privkey, testnet=testnet)
+    else:
+        rv = 'addr(%s)' % address
+
+    # TODO: add checksum
+
+    return rv
 
 def verify_master_pubkey(pub, sig, chain_code, my_nonce, card_nonce):
     # using signature response from 'deriv' command, recover the master pubkey
@@ -117,6 +151,24 @@ def verify_derive_address(chain_code, master_pub, testnet=False):
 
     return render_address(pubkey, testnet=testnet), pubkey
 
+def str_to_int_path(path):
+    # convert text  m/34'/33/44 into list of integers
+
+    rv = []
+    for i in path.split('/'):
+        if i == 'm': continue
+        if not i: continue      # trailing or duplicated slashes
+        
+        if i[-1] in "'phHP":
+            assert len(i) >= 2, i
+            here = int(i[:-1]) | 0x80000000
+        else:
+            here = int(i)
+            assert 0 <= here < 0x80000000, here
+        
+        rv.append(here)
+
+    return rv
     
 
 

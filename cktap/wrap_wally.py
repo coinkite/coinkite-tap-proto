@@ -28,6 +28,9 @@ def CT_pick_keypair():
     else:
         raise RuntimeError("stuck rng?")
 
+def CT_priv_to_pubkey(priv):
+    return ec_public_key_from_private_key(priv)
+
 def CT_sig_verify(pub, msg_digest, sig):
     assert len(sig) == 64
     try:

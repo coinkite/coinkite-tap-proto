@@ -12,11 +12,10 @@
 # - ECDSA verify returns bool, doesn't raise exception
 # - tragically? these all are libsecp256k1 underneath
 #
-import os
 
-__all__ = ['sha256s', 'hash160', 
-    'CT_ecdh', 'CT_sig_verify', 'CT_sig_to_pubkey', 'CT_sign',
-    'CT_pick_keypair', 'CT_bip32_derive']
+__all__ = [ 'sha256s', 'hash160', 
+            'CT_ecdh', 'CT_sig_verify', 'CT_sig_to_pubkey', 'CT_sign',
+            'CT_pick_keypair', 'CT_bip32_derive', 'CT_priv_to_pubkey']
 
 # Fall-back code, might be overriden below.
 #
@@ -25,19 +24,52 @@ def sha256s(msg):
     from hashlib import sha256
     return sha256(msg).digest()
 
+@staticmethod
 def hash160(x):
     # classic bitcoin nested hashes
-    from ripemd import RIPEMD160
+    from .ripemd import RIPEMD160
     return RIPEMD160(sha256s(x)).digest()
+
+# Other codes must implement...
+
+def CT_pick_keypair():
+    # return (priv, pub)
+    raise NotImplementedError
+
+def CT_priv_to_pubkey(pk):
+    # return compressed pubkey
+    raise NotImplementedError
+
+def CT_sig_verify(pub, msg_digest, sig):
+    # returns True or False
+    assert len(sig) == 64
+    raise NotImplementedError
+
+def CT_sig_to_pubkey(msg_digest, sig):
+    # returns a pubkey (33 bytes)
+    assert len(sig) == 65
+    raise NotImplementedError
+
+def CT_ecdh(his_pubkey, my_privkey):
+    # returns a 32-byte session key, which is sha256s(compressed point)
+    raise NotImplementedError
+
+def CT_sign(privkey, msg_digest, recoverable=False):
+    # returns 64-byte sig
+    raise NotImplementedError
+
+def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
+    # return pubkey (33 bytes)
+    raise NotImplementedError
 
 
 try:
     # Wally Core <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
     import wallycore
 
-    from wrap_wally import hash160, sha256s
-    from wrap_wally import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
-    from wrap_wally import CT_pick_keypair, CT_bip32_derive
+    from .wrap_wally import hash160, sha256s
+    from .wrap_wally import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+    from .wrap_wally import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
 
 except ImportError:
 
@@ -45,8 +77,9 @@ except ImportError:
         # Coincurve <https://ofek.dev/coincurve/api/>
         import coincurve
 
-        from wrap_coincurve import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
-        from wrap_coincurve import CT_pick_keypair, CT_bip32_derive
+        from .wrap_coincurve import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+        from .wrap_coincurve import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+
     except ImportError:
         raise RuntimeError("need a crypto library")
 
