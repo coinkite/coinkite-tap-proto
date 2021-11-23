@@ -25,9 +25,14 @@ def find_cards():
     from smartcard.System import readers as get_readers
     from smartcard.Exceptions import CardConnectionException, NoCardException
 
+    # emulation running on a Unix socket
+    sim = CKEmulatedCard.find_simulator()
+    if sim:
+        yield sim
+
     readers = get_readers()
     if not readers:
-        raise RuntimeError("Zero USB card readers found. Need at least one.")
+        raise RuntimeError("No USB card readers found. Need at least one.")
 
     # search for our card
     for r in readers:
@@ -44,7 +49,7 @@ def find_cards():
             continue
 
         if atr == CARD_ATR:
-            yield conn
+            yield CKTapCard(conn)
 
 class CKTapDeviceBase:
     # Abstract base class
@@ -67,7 +72,7 @@ class CKTapDeviceBase:
 
     def __repr__(self):
         kk = b2a_hex(self.pubkey).decode('ascii')[-8:] if hasattr(self, 'pubkey') else '???'
-        return '<%s: card_pubkey=...%s> ' % (__class__.__name__, kk)
+        return '<%s: card_pubkey=...%s> ' % (self.__class__.__name__, kk)
 
     def _send_recv(self, msg):
         # do CBOR encoding and round-trip the request + response
@@ -75,6 +80,9 @@ class CKTapDeviceBase:
 
     def _nfc_read(self):
         # TODO?
+        raise NotImplementedError
+
+    def get_ATR(self):
         raise NotImplementedError
 
     def send_auth(self, cmd, cvc, **args):
@@ -185,6 +193,9 @@ class CKTapCard(CKTapDeviceBase):
 
         self._boot()
 
+    def get_ATR(self):
+        return self._conn.getATR()
+
     def _apdu(self, cls, ins, data, p1=0, p2=0):
         # send APDU to card
         lst = [ cls, ins, p1, p2, len(data)] + list(data)
@@ -197,5 +208,42 @@ class CKTapCard(CKTapDeviceBase):
         assert len(msg) <= 255, "msg too long"
         return self._apdu(CBOR_CLA, CBOR_INS, msg)
 
+class CKEmulatedCard(CKTapDeviceBase):
+    # emulation running on a Unix socket
+
+    @classmethod
+    def find_simulator(cls):
+        import os
+        FN = '/tmp/ecard-pipe'
+        if os.path.exists(FN):
+            return cls(FN)
+        return None
+
+    def get_ATR(self):
+        return CARD_ATR
+
+    def __init__(self, pipename):
+        import socket
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(pipename)
+        self._boot()
+
+    def _send_recv(self, msg):
+        # send and receive response back
+        self.sock.sendall(msg)
+        resp = self.sock.recv(4096)
+
+        if not resp:
+            # closed socket causes this
+            raise pytest.fail("Emu crashed?")
+
+        return 0x9000, resp
+
+    def _nfc_read(self):
+        # read the NFC data from card
+        # - use special command
+        return self.send('XXX_NFC')['nfc']
+
+        
 
 # EOF

@@ -34,12 +34,10 @@ def my_hook(ty, val, tb):
 sys.excepthook=my_hook
 
 def get_card():
-    if not force_uid:
-        return CKTapCard()
     # XXX search based on uid or something
     # and/or wait?
-    c = find_cards()[0]
-    return CKTapCard(c)
+    for c in find_cards():
+        return c
 
 def fail(msg):
     # show message and stop
@@ -255,8 +253,7 @@ def _list():
     "List all cards detected on any reader attached"
 
     count = 0
-    for conn in find_cards():
-        card = CKTapCard(conn)
+    for card in find_cards():
         #click.echo("\nColdcard {serial_number}:\n{nice}".format(
                             #nice=pformat(info, indent=4)[1:-1], **info))
         click.echo(repr(card))
@@ -288,13 +285,13 @@ def get_usage(cvc):
             if 'privkey' in here:
                 pk = xor_bytes(session_key, here['privkey'])
                 addr = render_address(pk, card.is_testnet)
-            else:
-                addr = '(use spend code to view)'
         elif here.get('used', None) == False:
             status = "unused"
         else:
             dump_dict(here)
             pass
+
+        addr = addr or here.get('addr')
         
         print('%3d   | %-8s | %s' % (slot, status, addr or ''))
 
@@ -428,11 +425,20 @@ def dump_wif(cvc, slot, bip178, bare):
     if slot == -1:
         st = card.send('status')
         active = st['slots'][0]
-        slot = active if 'addr' not in st else (active-1)
+        slot = active-1
 
     cvc = cleanup_cvc(cvc)
     
     ses_key, resp = card.send_auth('dump', cvc, slot=slot)
+
+    if 'privkey' not in resp:
+        if resp.get('used', None) == False:
+            fail(f"That slot ({slot}) is not yet used (no key yet)")
+        if resp.get('sealed', None) == True:
+            fail(f"That slot ({slot}) is not yet unsealed.")
+        # unreachable:
+        fail(f"Not sure of the key for that slot ({slot}).")
+
     pk = xor_bytes(ses_key, resp['privkey'])
 
     if bip178:
@@ -440,7 +446,12 @@ def dump_wif(cvc, slot, bip178, bare):
 
     wif = render_wif(pk, bip_178=bip178, electrum=(not bare), testnet=card.is_testnet)
 
-    click.echo(wif)
+    if not bare:
+        click.echo(f'Slot {slot} private key WIF:\n')
+        click.echo(wif)
+        click.echo()
+    else:
+        click.echo(wif)
     
 
 def dump_info(slot_num, privkey, is_testnet=False):
