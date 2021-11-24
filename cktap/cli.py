@@ -21,8 +21,9 @@ from .transport import CKTapCard, find_cards
 
 B2A = lambda x: b2a_hex(x).decode('ascii')
 
-global force_uid
-force_uid = None
+# dict of options that apply to all commands
+global global_opts
+global_opts = dict()
 
 # Cleanup display (supress traceback) for user-feedback exceptions
 _sys_excepthook = sys.excepthook
@@ -33,16 +34,35 @@ def my_hook(ty, val, tb):
         return _sys_excepthook(ty, val, tb)
 sys.excepthook=my_hook
 
-def get_card():
-    # XXX search based on uid or something
-    # and/or wait?
-    for c in find_cards():
-        return c
-
 def fail(msg):
     # show message and stop
     click.echo(msg)
     sys.exit(1)
+
+def get_card():
+    # Pick a card to work with
+    global global_opts
+    pk_filter = (global_opts.get('card_pubkey') or '').lower()
+    wait_for_it = global_opts.get('wait', False)
+
+    first = True
+    while 1:
+        for c in find_cards():
+            if pk_filter:
+                if not B2A(c.pubkey).endswith(pk_filter):
+                    del c
+                    continue
+            return c
+
+        if not wait_for_it: 
+            fail("No cards found. Is it in place on reader?")
+
+        if first:
+            click.echo("Waiting for card...")
+            first = False
+
+        time.sleep(1)
+        
 
 def dump_dict(d):
 
@@ -90,11 +110,13 @@ def display_errors(f):
 # Options we want for all commands
 #
 @click.group()
-@click.option('--uid', '-u', default=None, metavar="HEX",
-                    help="Operate on specific card (default: first found)")
-def main(uid):
-    global force_uid
-    force_uid = uid
+@click.option('--card-pubkey', '-c', default=None, metavar="HEX",
+                    help="Operate on specific card (rightmost hex digits of public key)")
+@click.option('--wait', '-w', is_flag=True, 
+                    help="Waits until a card is in place.")
+def main(**kws):
+    global global_opts
+    global_opts.update(kws)
         
 @main.command()
 def debug():
