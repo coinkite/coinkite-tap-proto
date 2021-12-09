@@ -25,7 +25,7 @@ To build to release for Pypi:
   `python3 -m pip install --index-url https://test.pypi.org/simple/ coinkite-tap-protocol --no-cache-dir`
     - but since most dependances aren't on testpypi repo, install those after each error
     - you may need to force the version number to get the updated file
-- test `cktap view` works
+- test `cktap address` works
 - test `python -m cktap` works
 - final upload: `twine upload dist/*`
 

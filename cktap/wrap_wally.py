@@ -42,7 +42,7 @@ def CT_sig_verify(pub, msg_digest, sig):
 
 def CT_sig_to_pubkey(msg_digest, sig):
     assert len(sig) == 65
-    return ec_sig_to_public_key(msg_digest, sig)
+    return bytes(ec_sig_to_public_key(msg_digest, sig))
 
 def CT_ecdh(pubkey, privkey):
     return wally_ecdh(pubkey, privkey)

@@ -43,9 +43,27 @@ pip install --editable '.[cli]'
 - python 3.6 or higher
 - `pyscard` for acceess to smartcard readers
 - a supported smart-card reader:
-    - "ACS ACR122U" is recommended
+    - "ACS ACR122U" can work, and is widely available
+    - best is "Identiv uTrust 3700F or 3720F" because it's faster
     - but most smartcard USB class-compliant devices should work.
 - see `requirements.txt` file for more details.
+
+## Windows Notes
+
+- to install pyscard, I needed swig installed:
+    - download zip from <http://swig.org>
+    - extract, move into `C:\Program Files`
+    - add that to sysmte PATH
+    - test: `swig` at command prompt should work
+    - then `pip install pyscard` worked
+
+# Using the Library
+
+```python
+from cktap.transport import CKTapCard
+card = CKTapCard.find_first()
+print(card.address())
+```
 
 # Using the CLI
 

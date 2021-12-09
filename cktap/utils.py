@@ -1,6 +1,6 @@
 # (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
-import os, base58, bech32, hashlib
+import os, base58, bech32, struct
 from binascii import b2a_hex, a2b_hex
 from .constants import *
 from .compat import hash160, sha256s
@@ -10,14 +10,25 @@ from .compat import CT_bip32_derive, CT_priv_to_pubkey
 # show bytes as hex in a string
 B2A = lambda x: b2a_hex(x).decode('ascii')
 
-def xor_bytes(a, b):
-    # XOR the bytes of A and B
+def xor_bytes(a, b): # XOR the bytes of A and B
     assert len(a) == len(b)
     return bytes(i^j for i,j in zip(a,b))
 
 def pick_nonce():
     # pick a nonce for our side
     return os.urandom(USER_NONCE_SIZE)
+
+# Serialization/deserialization tools
+def ser_compact_size(l):
+    if l < 253:
+        return struct.pack("B", l)
+    elif l < 0x10000:
+        return struct.pack("<BH", 253, l)
+    elif l < 0x100000000:
+        return struct.pack("<BI", 254, l)
+    else:
+        return struct.pack("<BQ", 255, l)
+
 
 def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     # Verify the certificate chain works, returns label for pubkey recovered from signatures.
@@ -31,16 +42,18 @@ def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
     pubkey = r['pubkey']
 
+    # check card can sign with indicated key
     ok = CT_sig_verify(pubkey, sha256s(msg), check_resp['auth_sig'])
     if not ok:
         raise RuntimeError("bad sig in verify_certs")
 
+    # follow certificate chain to factory root
     for sig in signatures:
         pubkey = CT_sig_to_pubkey(sha256s(pubkey), sig)
 
     if pubkey not in FACTORY_ROOT_KEYS:
-        # fraud
-        raise RuntimeError("root cert is not Coinkite")
+        # fraudulent device
+        raise RuntimeError("Root cert is not from Coinkite. Card is counterfeit.")
 
     return FACTORY_ROOT_KEYS[pubkey]
 
@@ -61,14 +74,14 @@ def recover_address(status_resp, read_resp, my_nonce):
     # Critical: proves card knows key
     ok = CT_sig_verify(pubkey, sha256s(msg), read_resp['sig'])
     if not ok:
-        raise RuntimeError("bad sig")
+        raise RuntimeError("Bad sig in recover_address")
 
     # Critical: counterfieting check
     addr = render_address(pubkey, r.get('testnet', False))
     if not (addr.startswith(left)
                 and addr.endswith(right)
                 and len(left) == len(right) == ADDR_TRIM):
-        raise RuntimeError("corrupt response")
+        raise RuntimeError("Corrupt response")
 
     return pubkey, addr
 
@@ -107,8 +120,8 @@ def render_wif(privkey, bip_178=False, electrum=False, testnet=False):
     # Show the WIF in useful text format (base58)
     # - we are always trying to do bech32/segwit but hard to communicate that
     # - BIP-178 not accepted by community nor Core
-    # - electrum adds a prefix for humans (decent)
-    # - Core 22.0 does not seem to correct bech32 import (assumes legacy? does all, IDK)
+    # - electrum adds a prefix for humans (decent idea)
+    # - Core 22.0 does not seem to support bech32 import (assumes legacy or does all, IDK)
     assert len(privkey) == 32
     assert (bip_178 or electrum) or not any([bip_178, electrum])
 
@@ -139,7 +152,7 @@ def verify_master_pubkey(pub, sig, chain_code, my_nonce, card_nonce):
 
     ok = CT_sig_verify(pub, sha256s(msg), sig)
     if not ok:
-        raise RuntimeError("bad sig")
+        raise RuntimeError("bad sig in verify_master_pubkey")
 
     return pub
 
@@ -150,6 +163,31 @@ def verify_derive_address(chain_code, master_pub, testnet=False):
     pubkey = CT_bip32_derive(chain_code, master_pub, [0])
 
     return render_address(pubkey, testnet=testnet), pubkey
+
+
+def make_recoverable_sig(digest, sig, addr, is_testnet=False):
+    # The card will only make non-recoverable signatures (64 bytes)
+    # but we usually know the address which should be implied by
+    # the signature's pubkey, so we can try all values and discover
+    # the correct "rec_id" 
+    assert len(digest) == 32
+    assert len(sig) == 64
+
+    for rec_id in range(4):
+        # see BIP-137 for magic value "39"... perhaps not well supported tho
+        try:
+            rec_sig = bytes([39 + rec_id]) + sig
+            pubkey = CT_sig_to_pubkey(digest, rec_sig)
+        except ValueError:
+            if rec_id >= 2: continue        # because crypto I don't understand
+    
+        got = render_address(pubkey, is_testnet)
+        if got.endswith(addr):
+            return rec_sig
+
+    # failed to recover right pubkey value
+    raise ValueError("sig may not be created by that address??")
+
 
 def str_to_int_path(path):
     # convert text  m/34'/33/44 into list of integers
@@ -170,6 +208,16 @@ def str_to_int_path(path):
 
     return rv
     
+def render_sats_value(c, u):
+    # string value for humans: making this hard to parse on purpose
+    if not c and not u:
+        return '-zero-'
+    elif not u:
+        return f'{c:,} sats'
+    elif c:
+        return f'{c:,} sats (+{u:,} soon)'
+    else:
+        return f'-zero- (+{u:,} soon)'
 
 
 # EOF

@@ -16,11 +16,21 @@ def CT_sig_verify(pub, msg_digest, sig):
 
 def CT_sig_to_pubkey(msg_digest, sig):
     assert len(sig) == 65
-    nxt = PublicKey.from_signature_and_message(sig, msg_digest, hasher=None)
+    rec_id = sig[0]
+    # from BIP-137
+    if 31 <= rec_id <= 34:
+        rec_id -= 31        # P2PKH compressed (most compatible)
+    elif 39 <= rec_id <= 42:
+        rec_id -= 39        # P2WPKH (most correct for this project)
+    else:
+        raise ValueError(f'See BIP-137 for recid encoding, saw: {rec_id}')
+
+    sig2 = sig[1:] + bytes([rec_id])
+    nxt = PublicKey.from_signature_and_message(sig2, msg_digest, hasher=None)
     return nxt.format()
 
 def CT_ecdh(pubkey, privkey):
-    return PrivateKey(privkey).ecdh(his_pubkey)
+    return PrivateKey(privkey).ecdh(pubkey)
 
 def CT_pick_keypair():
     # Choose pub/private pair, return private key (32 bytes) and compressed pubkey
@@ -30,13 +40,16 @@ def CT_pick_keypair():
 def CT_sign(privkey, msg_digest, recoverable=False):
     pk = PrivateKey(privkey)
     if recoverable:
-        return pk.sign_recoverable(msg_digest, hasher=None)
+        # provides rec_id at end?
+        sig = pk.sign_recoverable(msg_digest, hasher=None)
+        bip137 = sig[-1] + 31
+        return bytes([bip137]) + sig[0:64]
     else:
         der = pk.sign(msg_digest, hasher=None)
         return serialize_compact(der_to_cdata(der))
 
 def CT_priv_to_pubkey(priv):
-    pk = PrivateKey(privkey)
+    pk = PrivateKey(priv)
     return pk.public_key.format()
 
 def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):

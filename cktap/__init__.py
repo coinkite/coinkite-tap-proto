@@ -2,6 +2,6 @@
 
 __version__ = '0.0.1'
 
-__all__ = [ "transport", "protocol", "constants" ]
+__all__ = [ "transport", "constants", 'utils', 'sweep' ]
 
 

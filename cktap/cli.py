@@ -15,11 +15,11 @@ from binascii import b2a_hex, a2b_hex
 from functools import wraps
 from getpass import getpass
 
-from .utils import xor_bytes, render_address, render_wif, render_descriptor
+from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
+from .utils import make_recoverable_sig, render_sats_value
+from .compat import sha256s
 from .constants import *
 from .transport import CKTapCard, find_cards
-
-B2A = lambda x: b2a_hex(x).decode('ascii')
 
 # dict of options that apply to all commands
 global global_opts
@@ -29,7 +29,7 @@ global_opts = dict()
 _sys_excepthook = sys.excepthook
 def my_hook(ty, val, tb):
     if ty in { CardRuntimeError, RuntimeError }:
-        print("\n\n%s" % val, file=sys.stderr)
+        print("\n\nFATAL: %s" % val, file=sys.stderr)
     else:
         return _sys_excepthook(ty, val, tb)
 sys.excepthook=my_hook
@@ -50,7 +50,7 @@ def get_card():
         for c in find_cards():
             if pk_filter:
                 if not B2A(c.pubkey).endswith(pk_filter):
-                    del c
+                    c.close()
                     continue
             return c
 
@@ -106,43 +106,85 @@ def display_errors(f):
             sys.exit(1)
     return wrapper
 
+# Accept any prefix of a command name.
+#
+# from <https://click.palletsprojects.com/en/8.0.x/advanced/?#command-aliases>
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_name):
+        rv = click.Group.get_command(self, ctx, cmd_name)
+        if rv is not None:
+            return rv
+        matches = [x for x in self.list_commands(ctx)
+                   if x.startswith(cmd_name)]
+        if not matches:
+            return None
+        elif len(matches) == 1:
+            return click.Group.get_command(self, ctx, matches[0])
+        ctx.fail(f"Abiguous command. Pick one of: {', '.join(sorted(matches))}")
+
+    def resolve_command(self, ctx, args):
+        # always return the full command name
+        _, cmd, args = super().resolve_command(ctx, args)
+        return cmd.name, cmd, args
+
+
 #
 # Options we want for all commands
 #
-@click.group()
+@click.group(cls=AliasedGroup)
 @click.option('--card-pubkey', '-c', default=None, metavar="HEX",
                     help="Operate on specific card (rightmost hex digits of public key)")
 @click.option('--wait', '-w', is_flag=True, 
                     help="Waits until a card is in place.")
+@click.option('--pdb', is_flag=True, 
+                    help="Prepare patient for surgery to remove bugs.")
 def main(**kws):
+    '''
+    Control and interact with SATSCARD via NFC tap.
+
+
+    You can use "b" for "balance" or any distinct prefix.
+    '''
+
+    # global options, mostly not considered here
+    if kws.pop('pdb', False):
+        import pdb, sys
+        def doit(ex_cls, ex, tb):
+            pdb.pm()
+        sys.excepthook = doit
+
     global global_opts
     global_opts.update(kws)
         
-@main.command()
-def debug():
-    "Start interactive (local) debug session"
+@main.command('debug')
+def interactive_debug():
+    "Start interactive (local) debug session."
     import code
-    import readline
     import atexit
     import os
             
-    class HistoryConsole(code.InteractiveConsole):
-        def __init__(self, locals=None, filename="<console>",
-                     histfile=os.path.expanduser("~/.console-history")):
-            code.InteractiveConsole.__init__(self, locals, filename)
-            self.init_history(histfile)
-        
-        def init_history(self, histfile):
-            readline.parse_and_bind("tab: complete")
-            if hasattr(readline, "read_history_file"):
-                try:
-                    readline.read_history_file(histfile)
-                except IOError:
-                    pass
-                atexit.register(self.save_history, histfile)
-        
-        def save_history(self, histfile):
-            readline.write_history_file(histfile)
+    try:
+        import readline
+        class HistoryConsole(code.InteractiveConsole):
+            def __init__(self, locals=None, filename="<console>",
+                         histfile=os.path.expanduser("~/.console-history")):
+                code.InteractiveConsole.__init__(self, locals, filename)
+                self.init_history(histfile)
+            
+            def init_history(self, histfile):
+                readline.parse_and_bind("tab: complete")
+                if hasattr(readline, "read_history_file"):
+                    try:
+                        readline.read_history_file(histfile)
+                    except IOError:
+                        pass
+                    atexit.register(self.save_history, histfile)
+            
+            def save_history(self, histfile):
+                readline.write_history_file(histfile)
+    except ImportError:
+        # windows probably, keep going
+        HistoryConsole = code.InteractiveConsole
 
     # useful stuff
     import pdb
@@ -167,112 +209,61 @@ def get_block_chain():
     
 @main.command('msg')
 @click.argument('message')
+@click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 @click.option('--verbose', '-v', is_flag=True, help='Include fancy ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
-@click.option('--segwit', '-s', is_flag=True, help='Address in segwit native (p2wpkh, bech32)')
-@click.option('--wrap', '-w', is_flag=True, help='Address in segwit wrapped in P2SH (p2wpkh)')
-def sign_message(message, path=2, verbose=True, just_sig=False, wrap=False, segwit=False):
-    "Sign a short text message"
+@click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
+def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
+    "Sign a short text message (TODO -- INCOMPLETE)"
+    from base64 import b64encode
 
     card = get_card()
 
-    if wrap:
-        addr_fmt = AF_P2WPKH_P2SH
-    elif segwit:
-        addr_fmt = AF_P2WPKH
-    else:
-        addr_fmt = AF_CLASSIC
-
-    # NOTE: initial version of firmware not expected to do segwit stuff right, since
-    # standard very much still in flux, see: <https://github.com/bitcoin/bitcoin/issues/10542>
-
-    # not enforcing policy here on msg contents, so we can define that on product
     message = message.encode('ascii') if not isinstance(message, bytes) else message
 
-    ok = dev.send_recv(CCProtocolPacker.sign_message(message, path, addr_fmt), timeout=None)
-    assert ok == None
+    # TODO: 
+    # - using <https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki>
+    # - build a message digest, based on BIP-340 "tagged hash" and a fake to_sign txn
+    # - send to card
+    # - serialize result, which includes to_sign txn
 
-    print("Waiting for OK on the Coldcard...", end='', file=sys.stderr)
-    sys.stderr.flush()
+    # XXX until then, pretend we are living in a simple 2010 world.
+    # - I don't know of any tools which can be used to verify this signature... useless
+    xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
+    md = sha256s(sha256s(xmsg))
 
-    while 1:
-        time.sleep(0.250)
-        done = dev.send_recv(CCProtocolPacker.get_signed_msg(), timeout=None)
-        if done == None:
-            continue
+    cvc = cleanup_cvc(cvc)
+    ses_key, resp = card.send_auth('blind', cvc, slot=slot, digest=md)
 
-        break
+    addr = card.address(slot=slot)
 
-    print("\r                                  \r", end='', file=sys.stderr)
-    sys.stderr.flush()
-
-    if len(done) != 2:
-        click.echo('Failed: %r' % done)
-        sys.exit(1)
-
-    addr, raw = done
+    # problem: not a recoverable signature, need to calc recid based on our
+    # knowledge of address
+    raw = make_recoverable_sig(md, resp['sig'], addr, card.is_testnet)
 
     sig = str(b64encode(raw), 'ascii').replace('\n', '')
 
     if just_sig:
         click.echo(str(sig))
-    elif verbose:
-        click.echo('-----BEGIN SIGNED MESSAGE-----\n{msg}\n-----BEGIN '
-                  'SIGNATURE-----\n{addr}\n{sig}\n-----END SIGNED MESSAGE-----'.format(
-                        msg=message.decode('ascii'), addr=addr, sig=sig))
     else:
-        click.echo('%s\n%s\n%s' % (message.decode('ascii'), addr, sig))
+        if verbose:
+            click.echo('-----BEGIN SIGNED MESSAGE-----\n{msg}\n-----BEGIN '
+                      'SIGNATURE-----\n{addr}\n{sig}\n-----END SIGNED MESSAGE-----'.format(
+                            msg=message.decode('ascii'), addr=addr, sig=sig))
+        else:
+            click.echo('%s\n%s\n%s' % (message.decode('ascii'), addr, sig))
     
-
-"""
-@main.command('backup')
-@click.option('--outdir', '-d', 
-            type=click.Path(exists=True,dir_okay=True, file_okay=False, writable=True),
-            help="Save into indicated directory (auto filename)", default='.')
-@click.option('--outfile', '-o', metavar="filename.aes",
-                        help="Name for backup file", default=None,
-                        type=click.File('wb'))
-@display_errors
-def start_backup(outdir, outfile, verbose=False):
-    '''Creates 7z encrypted backup file after prompting user to remember a massive passphrase. \
-Downloads the AES-encrypted data backup and by default, saves into current directory using \
-a filename based on today's date.'''
-
-    card = get_card()
-    
-    #card.send('backup', cvc=
-    
-    #ok = dev.send_recv(card.
-    #assert ok == None
-
-    #result, chk = wait_and_download(dev, CCProtocolPacker.get_backup_file(), 0)
-
-    if outfile:
-        outfile.write(result)
-        outfile.close()
-        fn = outfile.name
-    else:
-        assert outdir
-
-        # pick a useful filename, if they gave a dirname
-        fn = os.path.join(outdir, time.strftime('backup-%Y%m%d-%H%M.7z'))
-
-        open(fn, 'wb').write(result)
-
-    click.echo("Wrote %d bytes into: %s\nSHA256: %s" % (len(result), fn, str(b2a_hex(chk), 'ascii')))
-"""
-
 @main.command('version')
 def get_version():
-    "Get the version of the card's firmware installed (not upgradable)"
+    "Get the version of the card's firmware installed (but not upgradable)"
 
     card = get_card()
 
-    click.echo(card.card_version)
+    click.echo(card.applet_version)
 
 @main.command('list')
-def _list():
-    "List all cards detected on any reader attached"
+def list_cards():
+    "List all cards detected on any reader attached."
 
     count = 0
     for card in find_cards():
@@ -287,7 +278,7 @@ def _list():
 @main.command('usage')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def get_usage(cvc):
-    "Show slots usage so far"
+    "Show slots usage so far."
 
     card = get_card()
 
@@ -297,7 +288,7 @@ def get_usage(cvc):
         session_key, here = card.send_auth('dump', cleanup_cvc(cvc, missing_ok=True), slot=slot)
 
         status = '???'
-        addr = None
+        addr = here.get('addr', None)
         if here.get('sealed', None) == True:
             status = 'sealed'
             if slot == card.active_slot:
@@ -329,11 +320,12 @@ def get_addr():
     click.echo(addr)
 
 @main.command('open')
-def get_addr_open_app():
+@click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
+def get_addr_open_app(slot):
     "Get address and open associated bitcoin app to handle"
     card = get_card()
 
-    addr = card.address()
+    addr = card.address(slot=slot)
     if not addr:
         fail("Current slot not yet setup and has no address.")
 
@@ -345,15 +337,16 @@ def get_addr_open_app():
 @click.option('--outfile', '-o', metavar="filename.png",
                         help="Save an SVG or PNG (depends on extension)", default=None,
                         type=click.File('wb'))
+@click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
 @click.option('--error-mode', '-e', default='L', metavar="L|M|H",
             help="Forward error correction level (L = low, H=High=bigger)")
-def get_deposit_qr(outfile, error_mode):
+def get_deposit_qr(outfile, slot, error_mode):
     "Show current deposit address as a QR"
     import pyqrcode
 
     card = get_card()
-    addr = card.address()
 
+    addr = card.address(slot=slot)
     if not addr:
         fail("Current slot not yet setup and has no address.")
 
@@ -361,19 +354,23 @@ def get_deposit_qr(outfile, error_mode):
     q = pyqrcode.create(url, error=error_mode, mode='alphanumeric')
 
     if not outfile:
-        print(q.terminal())
-        print('      ' + addr)
+        # TODO: this doesn't work on Windows
+        print(q.terminal(quiet_zone=2))
+        print((' '*12) + addr)
         print()
-    elif outfile.name.lower().endswith('.svg'):
-        q.svg(outfile, scale=1)
     else:
-        q.png(outfile)
+        if outfile.name.lower().endswith('.svg'):
+            q.svg(outfile, scale=1)
+        else:
+            q.png(outfile)
+
+        click.echo(f"Wrote {outfile.tell():,} bytes to: {outfile.name}", err=1)
 
 @main.command('dump')
 @click.argument('slot', type=int, metavar="[SLOT#]", required=False, default=0)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def dump_slot(slot, cvc):
-    "Show state of slot number indicated. Provide code to get more info for unsealed slots."
+    "Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
     card = get_card()
 
     session_key, resp = card.send_auth('dump', cleanup_cvc(cvc, missing_ok=True), slot=slot)
@@ -396,12 +393,22 @@ def check_cvc(cvc):
     if 'error' in resp:
         fail(resp['error'])
     
-    print("Code is correct %r" % resp)
+    click.echo("Code is correct.")
+        
+@main.command('certs')
+def check_certs():
+    "Check this card was made by Coinkite: Verifies a certificate chain up to root factory key."
+
+    card = get_card()
+
+    label = card.certificate_check()
+    
+    click.echo("Genuine card from Coinkite.\n\nHas cert signed by: %s" % label)
     
 @main.command('unseal')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def unseal_slot(cvc):
-    "Unseal current slot. Does not setup next slot."
+    "Unseal current slot and reveal private key. Does not setup next slot."
 
     #'privkey': (32 bytes)   # private key for spending
     #'pubkey': (33 bytes)    # slot's pubkey (convenience, since could be calc'd from privkey)
@@ -469,18 +476,16 @@ def dump_wif(cvc, slot, bip178, bare):
     wif = render_wif(pk, bip_178=bip178, electrum=(not bare), testnet=card.is_testnet)
 
     if not bare:
-        click.echo(f'Slot {slot} private key WIF:\n')
-        click.echo(wif)
-        click.echo()
+        dump_info(slot, pk, wif, is_testnet=card.is_testnet)
     else:
         click.echo(wif)
     
 
-def dump_info(slot_num, privkey, is_testnet=False):
+def dump_info(slot_num, privkey, wif=None, is_testnet=False):
 
     addr = render_address(privkey, is_testnet)
 
-    wif = render_wif(privkey, is_testnet)
+    wif = wif or render_wif(privkey, is_testnet)
 
     click.echo(f"Slot #{slot_num}:\n\n{addr}\n\n{wif}")
 
@@ -491,7 +496,7 @@ def dump_info(slot_num, privkey, is_testnet=False):
                 help="Pick a fresh chain code randomly.")
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def setup_slot(cvc, chain_code, new_chain_code):
-    "Setup a new slot with a private key."
+    "Setup next slot with a fresh private key (not shown)."
 
     card = get_card()
 
@@ -510,7 +515,7 @@ def setup_slot(cvc, chain_code, new_chain_code):
         fail("Provide a chain code or make me pick one, not both")
 
     if new_chain_code:
-        chain_code = os.urandom(32)
+        args['chain_code'] = os.urandom(32)
     elif chain_code:
         try:
             chain_code = b2a_hex(chain_code)
@@ -530,6 +535,28 @@ def setup_slot(cvc, chain_code, new_chain_code):
 
     click.echo(card.address())
 
+@main.command('balance')
+@click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
+def show_balance(cvc):
+    "Show the balance held on all slots"
+    from cktap.sweep import UTXOList
+
+    cvc = cleanup_cvc(cvc, missing_ok=True)
+    card = get_card()
+
+    rv = []
+    click.echo('%-42s | Balance' % 'Address')
+    click.echo(('-'*42) + '-+-------------')
+
+    for slot in range(card.active_slot+1):
+        addr = card.address(slot=slot, faster=True)
+        if addr:
+            b = UTXOList(addr)
+            b.fetch()
+            bal = b.balance()
+            click.echo(f'{addr:40} | {bal}')
+            
+
 @main.command('core')
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
@@ -539,6 +566,8 @@ def export_to_core(cvc, pretty):
     # see 
     # - <https://bitcoincore.org/en/doc/0.21.0/rpc/wallet/importmulti/>
     # - <https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md>
+    # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
+    # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
 
     card = get_card()
 

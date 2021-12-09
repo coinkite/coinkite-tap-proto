@@ -1,8 +1,7 @@
-# Requirements both for emulator and test cases.
-pytest
+# Requirements both for usign CLI and as a library.
+
 cbor2>=5.4.1
 bech32>=1.2.0
-pyqrcode>=1.2.1
 
 pyscard==2.0.2
 
@@ -15,6 +14,14 @@ wallycore==0.8.4
 
 base58==2.1.1
 
+#
+# If only using for library, you won't need ones below here
+#
+
+pyqrcode>=1.2.1
+
 # for CLI command option parsing
 click==8.0.3
 
+# for balance getching
+requests[socks]==2.26.0

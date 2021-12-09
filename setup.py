@@ -6,21 +6,43 @@
 #
 #   pip install --editable .
 #
-
+# On Windows, this can be useful:
+#
+#   pip install -U --force-reinstall coinkite_tap_protocol-*.whl[cli]
+#
+#
 from setuptools import setup
 
-# these minimum versions are untested, some earlier values would probably work too.
+# these minimum versions are tested, some earlier values would probably work too.
 requirements = [
     'cbor2>=5.4.1',
     'bech32>=1.2.0',
-    'coincurve>=15.0.1',
-    #'secp256k1>=0.14.0',
-    'bip32>=2.1',
+    'base58>=2.1.1',
+    'pyscard>=2.0.2',
 ]
+
+if 1:
+    # We support wallycore or coincurve; both of which
+    # ultimately call libsecp256k1 
+    #
+    # - but I could not compile wallycore on windows
+    # - prolly because coincurve has 500+ lines of setup.py code
+    # - sorry I could not make this file detect O/S automatically?!
+    #
+    requirements.extend([
+        'coincurve>=15.0.1',
+        'bip32>=2.1',
+    ])
+else:
+    requirements.extend([
+        'wallycore>=0.8.2',
+    ])
 
 cli_requirements = [
     'click>=8.0.3',
     'pyqrcode>=1.2.1',
+    'pypng>=0.0.21',
+    'requests[socks]>=2.26.0',
 ]
 
 with open("README.md", "r") as fh:

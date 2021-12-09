@@ -3,7 +3,8 @@
 #
 # Quick tests
 #
-from compat import *
+import pytest
+from cktap.compat import *
 
 def test_wrap():
     assert sha256s(b'abc') == \
@@ -34,9 +35,14 @@ def test_wrap():
     
 
 def test_connection():
-    from transport import CKTapCard
-    a = CKTapCard()
-    print("addr: " + a.address())
+    # need a card on read for this
+    from cktap.transport import CKTapDeviceBase, find_cards
+    for c in find_cards():
+        #a = CKTapCard(c)
+        assert isinstance(c, CKTapDeviceBase)
+        print("addr: " + c.address())
+    else:
+        raise pytest.fail('no card / emulator found')
 
 if __name__ == '__main__':
     test_wrap()

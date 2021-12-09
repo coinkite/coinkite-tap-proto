@@ -21,7 +21,9 @@ SW_OKAY = 0x9000
 VERBOSE = False
 
 def find_cards():
-    # search all connected card readers, and find all cards that is present
+    #
+    # Search all connected card readers, and find all cards that are present.
+    #
     from smartcard.System import readers as get_readers
     from smartcard.Exceptions import CardConnectionException, NoCardException
 
@@ -52,23 +54,23 @@ def find_cards():
             yield CKTapCard(conn)
 
 class CKTapDeviceBase:
+    #
     # Abstract base class
     #
-    def _boot(self):
+    def first_look(self):
         # Call this at end of __init__ to load up details from card
 
         st = self.send('status')
         assert 'error' not in st, 'Early failure: ' + repr(st)
-        assert st['proto'] == 1, "unknown card protocol version"
+        assert st['proto'] == 1, "Unknown card protocol version"
 
         self.pubkey = st['pubkey']
-        self.card_version = st['ver']
+        self.applet_version = st['ver']
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
         self.active_slot, self.num_slots = st['slots']
         assert self.card_nonce      # self.send() will have captured from first status req
-
-        #print(f"Connected to: pubkey={B2A(self.pubkey)}")
+        self._certs_checked = False
 
     def __repr__(self):
         kk = b2a_hex(self.pubkey).decode('ascii')[-8:] if hasattr(self, 'pubkey') else '???'
@@ -78,11 +80,12 @@ class CKTapDeviceBase:
         # do CBOR encoding and round-trip the request + response
         raise NotImplementedError
 
-    def _nfc_read(self):
-        # TODO?
+    def nfc_read(self):
+        # return the contents of the NFC tag (NDEF file)
         raise NotImplementedError
 
     def get_ATR(self):
+        # ATR = Answer To Reset
         raise NotImplementedError
 
     def send_auth(self, cmd, cvc, **args):
@@ -97,35 +100,51 @@ class CKTapDeviceBase:
         else:
             session_key = None
 
+        # One single command takes an encrypted argument (most are returning encrypted
+        # results) and the caller didn't know the session key yet. So xor it for them.
+        if cmd == 'blind':
+            args['digest'] = xor_bytes(args['digest'], session_key)
+
         return session_key, self.send(cmd, **args)
 
-    def send(self, cmd, raise_on_error=True, **args):
+    def close(self):
+        # release resources
+        pass
+
+    def send(self, cmd, raise_on_error=True, _retries=5, **args):
         # Serialize command, send it as ADPU, get response and decode
 
         args = dict(args)
         args['cmd'] = cmd
         msg = cbor2.dumps(args)
 
-        # Send and wait for reply
-        stat_word, resp = self._send_recv(msg)
+        for retry in range(_retries):
+            # Send and wait for reply
+            stat_word, resp = self._send_recv(msg)
 
-        try:
-            resp = cbor2.loads(resp) if resp else {}
-        except:
-            print("Bad CBOR rx'd from card:\n{B2A(resp)}")
-            raise pytest.fail('Bad CBOR from card')
+            try:
+                resp = cbor2.loads(resp) if resp else {}
+            except:
+                print("Bad CBOR rx'd from card:\n{B2A(resp)}")
+                raise RuntimeError('Bad CBOR from card')
 
-        if stat_word != SW_OKAY:
-            # Assume error if ANY bad SW value seen; promote for debug purposes
-            if 'error' not in resp:
-                resp['error'] = "Got error SW value: 0x%04x" % stat_word
-            resp['stat_word'] = stat_word
+            if stat_word != SW_OKAY:
+                # Assume error if ANY bad SW value seen; promote for debug purposes
+                if 'error' not in resp:
+                    resp['error'] = "Got error SW value: 0x%04x" % stat_word
+                resp['stat_word'] = stat_word
 
-        if VERBOSE:
-            if 'error' in resp:
-                print(f"Command '{cmd}' => " + ', '.join(resp.keys()))
-            else:
-                print(f"Command '{cmd}' => " + pformat(resp))
+            if VERBOSE:
+                if 'error' in resp:
+                    print(f"Command '{cmd}' => " + ', '.join(resp.keys()))
+                else:
+                    print(f"Command '{cmd}' => " + pformat(resp))
+
+            # just simple bad luck can fail a command, so retry for another
+            # number; exactly same request data is used.
+            if 'error' in resp and resp.get('code', 0) == 205:
+                continue
+            break
 
         if 'card_nonce' in resp:
             # many responses provide an updated card_nonce need for
@@ -139,22 +158,49 @@ class CKTapDeviceBase:
 
         return resp
 
-    # Wrappers / helpers
-    def address(self, faster=False, incl_pubkey=False):
+    #
+    # Wrappers and Helpers
+    #
+    def address(self, faster=False, incl_pubkey=False, slot=None):
         # Get current payment address for card
         # - does 100% full verification by default
+        # - returns a bech32 address as a string
+
+        # check certificate chain
+        if not self._certs_checked and not faster:
+            self.certificate_check()
+
         st = self.send('status')
-        if 'addr' not in st:
+        cur_slot = st['slots'][0]
+        if slot is None:
+            slot = cur_slot
+
+        if ('addr' not in st) and (cur_slot == slot):
             #raise ValueError("Current slot is not yet setup.")
+
             return None
 
+        if self.pubkey.hex().endswith('a0b0d81a93117e442ae9ddce82c44d4268'):
+            # XXX debug card, before API change
+            if slot == 0:
+                return 'tb1q39xdpaq5utt9f6pn7zvw5qwf6hweukwqm4avgp'
+
+        if slot != cur_slot:
+            # Use the unauthenticated "dump" command.
+            rr = self.send('dump', slot=slot)
+
+            assert not incl_pubkey, 'can only get pubkey on current slot'
+
+            return rr['addr']
+        
+        # Use special-purpose "read" command
         n = pick_nonce()
         rr = self.send('read', nonce=n)
         
         pubkey, addr = recover_address(st, rr, n)
 
         if not faster:
-            # additional check
+            # additional check: did card include chain_code in generated private key?
             my_nonce = pick_nonce()
             card_nonce = self.card_nonce
             rr = self.send('derive', nonce=my_nonce)
@@ -162,26 +208,48 @@ class CKTapDeviceBase:
                                                 rr['chain_code'], my_nonce, card_nonce)
             derived_addr,_ = verify_derive_address(rr['chain_code'], master_pub,
                                                         testnet=self.is_testnet)
-            assert derived_addr == addr
+            if derived_addr != addr:
+                raise ValueError("card did not derive address as expected")
 
         if incl_pubkey:
             return pubkey, addr
 
         return addr
 
+    def certificate_check(self):
+        # Verify the certificate chain and the public key of the card
+        # - assures this card was produced in Coinkite factory
+        # - does not relate to payment addresses or slot usage
+        # - raises on errors/failed validation
+        st = self.send('status')
+        certs = self.send('certs')
+
+        n = pick_nonce()
+        check = self.send('check', nonce=n)
+
+        verify_certs(st, check, certs, n)
+        self._certs_checked = True
+
+    # TODO
+    # - get chain_code (derive cmd w/ nonce) and/or get "xpub"
+
 class CKTapCard(CKTapDeviceBase):
-    # talking to a real card.
-    def __init__(self, card_conn=None):
-        if not card_conn:
-            # pick first card
-            cards = list(find_cards())
-            if not cards:
-                raise RuntimeError("No card detected")
-            card_conn = cards[0]
-        else:
-            # check connection they gave us
-            atr = card_conn.getATR()
-            assert atr == CARD_ATR, "wrong ATR from card"
+    #
+    # For talking to a real card over USB to a reader.
+    #
+    @classmethod
+    def find_first(cls):
+        # operate on the first card we can find
+        for c in find_cards():
+            if isinstance(c, cls):
+                return c
+        return None
+
+    def __init__(self, card_conn):
+        # Check connection they gave us
+        # - if you don't have that, use find_cards instead
+        atr = card_conn.getATR()
+        assert atr == CARD_ATR, "wrong ATR from card"
 
         self._conn = card_conn
 
@@ -191,7 +259,12 @@ class CKTapCard(CKTapDeviceBase):
         sw, resp = self._apdu(0x00, 0xa4, APP_ID, p1=4)
         assert sw == SW_OKAY, "ISO app select failed"
 
-        self._boot()
+        self.first_look()
+
+    def close(self):
+        # release resources
+        self._conn.disconnect()
+        del self._conn
 
     def get_ATR(self):
         return self._conn.getATR()
@@ -209,7 +282,9 @@ class CKTapCard(CKTapDeviceBase):
         return self._apdu(CBOR_CLA, CBOR_INS, msg)
 
 class CKEmulatedCard(CKTapDeviceBase):
-    # emulation running on a Unix socket
+    #
+    # Emulation running over a Unix socket.
+    #
 
     @classmethod
     def find_simulator(cls):
@@ -226,7 +301,8 @@ class CKEmulatedCard(CKTapDeviceBase):
         import socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(pipename)
-        self._boot()
+        self.first_look()
+        self._certs_checked = True      # because it won't pass
 
     def _send_recv(self, msg):
         # send and receive response back
@@ -235,11 +311,11 @@ class CKEmulatedCard(CKTapDeviceBase):
 
         if not resp:
             # closed socket causes this
-            raise pytest.fail("Emu crashed?")
+            raise RuntimeError("Emu crashed?")
 
         return 0x9000, resp
 
-    def _nfc_read(self):
+    def nfc_read(self):
         # read the NFC data from card
         # - use special command
         return self.send('XXX_NFC')['nfc']
