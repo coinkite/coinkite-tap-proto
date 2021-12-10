@@ -95,7 +95,7 @@ class CKTapDeviceBase:
 
         if cvc:
             cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
-            session_key, auth_args = calc_xcvc(self.card_nonce, self.pubkey, cvc)
+            session_key, auth_args = calc_xcvc(cmd, self.card_nonce, self.pubkey, cvc)
             args.update(auth_args)
         else:
             session_key = None
