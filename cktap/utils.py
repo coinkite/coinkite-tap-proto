@@ -101,7 +101,6 @@ def calc_xcvc(cmd, card_nonce, his_pubkey, cvc):
     # - result is sha256s(compressed shared point (33 bytes))
     session_key = CT_ecdh(his_pubkey, my_privkey)
 
-    cmd = ''       # XXX delete me after issue #61 done
     md = sha256s(card_nonce + cmd.encode('ascii'))
     mask = xor_bytes(session_key, md)[0:len(cvc)]
     xcvc = xor_bytes(cvc, mask)
