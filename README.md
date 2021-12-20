@@ -43,8 +43,9 @@ pip install --editable '.[cli]'
 - python 3.6 or higher
 - `pyscard` for acceess to smartcard readers
 - a supported smart-card reader:
-    - "ACS ACR122U" can work, and is widely available
-    - best is "Identiv uTrust 3700F or 3720F" because it's faster
+    - "ACS ACR1252U" is better and also available.
+    - "Identiv uTrust 3700F" is reliable and looks nice
+    - "ACS ACR122U" can work, and is widely available, but is not recommended!
     - but most smartcard USB class-compliant devices should work.
 - see `requirements.txt` file for more details.
 
