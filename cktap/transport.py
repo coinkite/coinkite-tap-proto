@@ -10,6 +10,7 @@ from binascii import b2a_hex, a2b_hex
 from hashlib import sha256
 from .utils import *
 from .constants import *
+from .exceptions import CardRuntimeError
 
 # single-shot SHA256
 sha256s = lambda msg: sha256(msg).digest()
@@ -59,6 +60,7 @@ class CKTapDeviceBase:
     #
     def first_look(self):
         # Call this at end of __init__ to load up details from card
+        # - can be called multiple times
 
         st = self.send('status')
         assert 'error' not in st, 'Early failure: ' + repr(st)
@@ -78,10 +80,6 @@ class CKTapDeviceBase:
 
     def _send_recv(self, msg):
         # do CBOR encoding and round-trip the request + response
-        raise NotImplementedError
-
-    def nfc_read(self):
-        # return the contents of the NFC tag (NDEF file)
         raise NotImplementedError
 
     def get_ATR(self):
@@ -140,14 +138,15 @@ class CKTapDeviceBase:
                 print(f"Command '{cmd}' => " + pformat(resp))
 
         if 'card_nonce' in resp:
-            # many responses provide an updated card_nonce need for
-            # the *next* comand. Track it
+            # many responses provide an updated card_nonce needed for
+            # the *next* comand. Track it.
             # - only changes when "consumed" by commands that need CVC
             self.card_nonce = resp['card_nonce']
 
         if raise_on_error and 'error' in resp:
             msg = resp.pop('error')
-            raise CardRuntimeError(msg, resp)
+            code = resp.pop('code', 500)
+            raise CardRuntimeError(f'{code}: {msg}', (code, msg))
 
         return resp
 
@@ -222,6 +221,74 @@ class CKTapDeviceBase:
 
         verify_certs(st, check, certs, n)
         self._certs_checked = True
+
+    def unseal_slot(self, cvc):
+        # Unseal the current slot (can only be one)
+        # - returns (privkey, slot_num)
+
+        # only one possible value for slot number
+        target = self.active_slot
+
+        # but that slot must be used and sealed (note: unauthed req here)
+        resp = self.send('dump', slot=target)
+
+        if resp.get('sealed', None) == False:
+            raise RuntimeError(f"Slot {target} has already been unsealed.")
+
+        if resp.get('sealed', None) != True:
+            raise RuntimeError(f"Slot {target} has not been used yet.")
+
+        ses_key, resp = self.send_auth('unseal', cvc, slot=target)
+
+        pk = xor_bytes(ses_key, resp['privkey'])
+
+        return pk, target
+
+    def get_nfc_url(self):
+        # Provide the (dynamic) URL that you'd get if you tapped the card.
+        return self.send('nfc').get('url')
+
+    def get_privkey(self, cvc, slot):
+        # Provide the private key of an already-unsealed slot (32 bytes)
+        ses_key, resp = self.send_auth('dump', cvc, slot=slot)
+
+        if 'privkey' not in resp:
+            if resp.get('used', None) == False:
+                raise RuntimeError(f"That slot ({slot}) is not yet used (no key yet)")
+            if resp.get('sealed', None) == True:
+                raise RuntimeError(f"That slot ({slot}) is not yet unsealed.")
+
+            # unreachable?
+            raise RuntimeError(f"Not sure of the key for that slot ({slot}).")
+
+        return xor_bytes(ses_key, resp['privkey'])
+
+    def get_slot_usage(self, slot, cvc=None):
+        # Get address and status for a slot, CVC is optional
+        # returns:
+        #   (addr, status, detail_map) 
+        session_key, here = self.send_auth('dump', cvc, slot=slot)
+
+        addr = here.get('addr', None)
+        if here.get('sealed', None) == True:
+            status = 'sealed'
+            if slot == self.active_slot:
+                addr = self.address(faster=True)
+        elif (here.get('sealed', None) == False) or ('privkey' in here):
+            status = 'UNSEALED'
+            if 'privkey' in here:
+                pk = xor_bytes(session_key, here['privkey'])
+                addr = render_address(pk, self.is_testnet)
+        elif here.get('used', None) == False:
+            status = "unused"
+        else:
+            # unreachable.
+            raise ValueError(repr(here))
+
+        addr = addr or here.get('addr')
+
+        return (addr, status, here)
+
 
     # TODO
     # - get chain_code (derive cmd w/ nonce) and/or get "xpub"
@@ -309,11 +376,5 @@ class CKEmulatedCard(CKTapDeviceBase):
 
         return 0x9000, resp
 
-    def nfc_read(self):
-        # read the NFC data from card
-        # - use special command
-        return self.send('XXX_NFC')['nfc']
-
-        
 
 # EOF

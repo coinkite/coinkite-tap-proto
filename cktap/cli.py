@@ -19,6 +19,7 @@ from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A
 from .utils import make_recoverable_sig, render_sats_value
 from .compat import sha256s
 from .constants import *
+from .exceptions import CardRuntimeError
 from .transport import CKTapCard, find_cards
 
 # dict of options that apply to all commands
@@ -143,16 +144,17 @@ def main(**kws):
     Control and interact with SATSCARD via NFC tap.
 
 
-    You can use "b" for "balance" or any distinct prefix.
+    You can use "bal", or "b" for "balance": any distinct prefix for all commands.
     '''
 
-    # global options, mostly not considered here
+    # implement PDB option here
     if kws.pop('pdb', False):
         import pdb, sys
         def doit(ex_cls, ex, tb):
             pdb.pm()
         sys.excepthook = doit
 
+    # global options, mostly not considered here
     global global_opts
     global_opts.update(kws)
         
@@ -210,7 +212,7 @@ def get_block_chain():
 @main.command('msg')
 @click.argument('message')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
-@click.option('--verbose', '-v', is_flag=True, help='Include fancy ascii armour')
+@click.option('--verbose', '-v', is_flag=True, help='Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
 def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
@@ -228,7 +230,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     # - serialize result, which includes to_sign txn
 
     # XXX until then, pretend we are living in a simple 2010 world.
-    # - I don't know of any tools which can be used to verify this signature... useless
+    # - I don't know of any tools which can be used to verify this signature... so it's useless
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
 
@@ -267,8 +269,6 @@ def list_cards():
 
     count = 0
     for card in find_cards():
-        #click.echo("\nColdcard {serial_number}:\n{nice}".format(
-                            #nice=pformat(info, indent=4)[1:-1], **info))
         click.echo(repr(card))
         count += 1
 
@@ -280,31 +280,13 @@ def list_cards():
 def get_usage(cvc):
     "Show slots usage so far."
 
+    cvc = cleanup_cvc(cvc, missing_ok=True)
     card = get_card()
 
     print('SLOT# |  STATUS  | ADDRESS')
     print('------+----------+-------------')
     for slot in range(card.num_slots):
-        session_key, here = card.send_auth('dump', cleanup_cvc(cvc, missing_ok=True), slot=slot)
-
-        status = '???'
-        addr = here.get('addr', None)
-        if here.get('sealed', None) == True:
-            status = 'sealed'
-            if slot == card.active_slot:
-                addr = card.address()
-        elif (here.get('sealed', None) == False) or ('privkey' in here):
-            status = 'UNSEALED'
-            if 'privkey' in here:
-                pk = xor_bytes(session_key, here['privkey'])
-                addr = render_address(pk, card.is_testnet)
-        elif here.get('used', None) == False:
-            status = "unused"
-        else:
-            dump_dict(here)
-            pass
-
-        addr = addr or here.get('addr')
+        addr, status, _ = card.get_slot_usage(slot, cvc=cvc)
         
         print('%3d   | %-8s | %s' % (slot, status, addr or ''))
 
@@ -340,8 +322,7 @@ def get_nfc_url(open_browser):
     "Get website URL used for NFC verification, and optionally open it"
     card = get_card()
 
-    r = card.send('nfc')
-    url = r['url']
+    url = card.get_nfc_url()
 
     click.echo(url)
 
@@ -425,35 +406,14 @@ def check_certs():
 def unseal_slot(cvc):
     "Unseal current slot and reveal private key. Does not setup next slot."
 
-    #'privkey': (32 bytes)   # private key for spending
-    #'pubkey': (33 bytes)    # slot's pubkey (convenience, since could be calc'd from privkey)
-    #'master_pk': (32 bytes)      # card's master private key
-    #'chain_code': (32 bytes)     # nonce provided by customer
-
     card = get_card()
 
-    # only one possible value for slot number
-    target = card.active_slot
-
-    # but that slot must be used and sealed (note: unauthed)
-    resp = card.send('dump', slot=target)
-
-    if resp.get('sealed', None) == False:
-        fail(f"Slot {target} has already been unsealed.")
-
-    if resp.get('sealed', None) != True:
-        fail(f"Slot {target} has not been used yet.")
-
     cvc = cleanup_cvc(cvc)
-    ses_key, resp = card.send_auth('unseal', cvc, slot=target)
 
-    pk = xor_bytes(ses_key, resp['privkey'])
-
-    # could dump xprv here, but will confuse people
-    #m_pk = xor_bytes(ses_key, resp['master_pk'])
+    pk, slot_num = card.unseal_slot(cvc)
 
     # show all the details
-    dump_info(resp['slot'], pk, is_testnet=card.is_testnet)
+    dump_key_info(slot_num, pk, is_testnet=card.is_testnet)
 
 @main.command('wif')
 @click.option('--slot', '-s', type=int, metavar="#", default=-1, help="Slot number, default: last used")
@@ -472,32 +432,21 @@ def dump_wif(cvc, slot, bip178, bare):
         active = st['slots'][0]
         slot = active-1 if active >= 1 else 0
 
-    cvc = cleanup_cvc(cvc)
-    
-    ses_key, resp = card.send_auth('dump', cvc, slot=slot)
-
-    if 'privkey' not in resp:
-        if resp.get('used', None) == False:
-            fail(f"That slot ({slot}) is not yet used (no key yet)")
-        if resp.get('sealed', None) == True:
-            fail(f"That slot ({slot}) is not yet unsealed.")
-        # unreachable:
-        fail(f"Not sure of the key for that slot ({slot}).")
-
-    pk = xor_bytes(ses_key, resp['privkey'])
-
     if bip178:
-        bare=True
+        bare = True
 
+    cvc = cleanup_cvc(cvc)
+    pk = card.get_privkey(cvc, slot)
     wif = render_wif(pk, bip_178=bip178, electrum=(not bare), testnet=card.is_testnet)
 
     if not bare:
-        dump_info(slot, pk, wif, is_testnet=card.is_testnet)
+        dump_key_info(slot, pk, wif, is_testnet=card.is_testnet)
     else:
         click.echo(wif)
     
 
-def dump_info(slot_num, privkey, wif=None, is_testnet=False):
+def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
+    # Show the WIF and address
 
     addr = render_address(privkey, is_testnet)
 

@@ -4,6 +4,7 @@
 # System constants.
 #
 
+# Number of key slots in SATSCARD
 NUM_SLOTS = 10
 
 # the "CVC" is the spending code on back of card.
@@ -14,11 +15,15 @@ CVC_LENGTH = 6
 # TODO: update to a date closer to product launch
 PROJECT_EPOC_TIME_T = 1637600000
 
+# length from start/end of bech32 address that is provided
+# - center part will be replaced with three underscores
 ADDR_TRIM = 12
 
+# require nonce sizes (bytes)
 CARD_NONCE_SIZE = 16
 USER_NONCE_SIZE = 16
 
+# published Coinkite factory root keys
 FACTORY_ROOT_KEYS = { 
     bytes.fromhex('027722ef208e681bac05f1b4b3cc478d6bf353ac9a09ff0c843430138f65c27bab'):
         'Root Factory Certificate (TESTING)',
@@ -30,11 +35,8 @@ CARD_ATR = [59, 139, 128, 1, 80, 111, 108, 97, 114, 105, 115, 32, 33, 1, 17, 65]
 # our Javacard applet has this APP ID
 APP_ID = bytes.fromhex('f0436f696e6b697465534154537631')
 
-# details for our one APDU, which uses CBOR data
+# APDU CLA and INS fields for our one APDU, which uses CBOR data
 CBOR_CLA = 0x00
 CBOR_INS = 0xCB
 
-# exceptions
-class CardRuntimeError(RuntimeError):
-    pass
-
+# EOF

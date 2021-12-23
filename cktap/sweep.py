@@ -5,11 +5,10 @@
 #
 # - Requires 'requests[socks]' module
 # - Will try to use Tor if you have it running locally already
-# - Uses data from <blockstream.info>
+# - Uses data from <blockstream.info> by default
 #
 import sys, os, time, json
 from pprint import pformat
-#from binascii import b2a_hex, a2b_hex
 from getpass import getpass
 from collections import namedtuple
 from cktap.utils import render_sats_value
@@ -31,7 +30,7 @@ class NetConnection:
         assert not self.server.endswith('/')
 
         # I want no user-agent header at all, so have to
-        # use this one strange hack into urllib3...
+        # use this one strange hack on urllib3...
         from urllib3.util import SKIP_HEADER
         self.ses.headers['user-agent'] = SKIP_HEADER
 
@@ -132,29 +131,5 @@ class UTXOList:
             txns[txid] = self.web.get_json(prefix + f'/api/tx/{txid}')
 
         return txns
-
-
-# use pytest to run these test(s)
-
-def test_useragent():
-    a = NetConnection('http://httpbin.org')
-    assert a.is_tor == True
-    x = a.get_json('/user-agent')
-    assert x['user-agent'] == None
-
-if __name__ == '__main__':
-
-    addr = sys.argv[-1]
-    if addr[2] != '1':
-        # lots of txn on this one?
-        addr = 'tb1q39xdpaq5utt9f6pn7zvw5qwf6hweukwqm4avgp'
-
-    ul = UTXOList(addr)
-    ul.fetch()
-    #print(ul.utxos)
-    print('Balance: ' + ul.balance())
-
-    ins = ul.fetch_txns()
-    print('txns: ' + repr(ins))
 
 # EOF

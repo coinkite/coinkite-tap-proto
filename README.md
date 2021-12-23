@@ -45,8 +45,9 @@ pip install --editable '.[cli]'
 - a supported smart-card reader:
     - "ACS ACR1252U" is better and also available.
     - "Identiv uTrust 3700F" is reliable and looks nice
+    - HID Omnikey 5022 CL (not 5021) is fast, cute and small.
     - "ACS ACR122U" can work, and is widely available, but is not recommended!
-    - but most smartcard USB class-compliant devices should work.
+    - but most smartcard USB CCID class-compliant devices should work.
 - see `requirements.txt` file for more details.
 
 ## Windows Notes
@@ -54,7 +55,7 @@ pip install --editable '.[cli]'
 - to install pyscard, I needed swig installed:
     - download zip from <http://swig.org>
     - extract, move into `C:\Program Files`
-    - add that to sysmte PATH
+    - add that to system PATH
     - test: `swig` at command prompt should work
     - then `pip install pyscard` worked
 
