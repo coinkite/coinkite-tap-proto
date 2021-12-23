@@ -111,40 +111,33 @@ class CKTapDeviceBase:
         # release resources
         pass
 
-    def send(self, cmd, raise_on_error=True, _retries=5, **args):
+    def send(self, cmd, raise_on_error=True, **args):
         # Serialize command, send it as ADPU, get response and decode
 
         args = dict(args)
         args['cmd'] = cmd
         msg = cbor2.dumps(args)
 
-        for retry in range(_retries):
-            # Send and wait for reply
-            stat_word, resp = self._send_recv(msg)
+        # Send and wait for reply
+        stat_word, resp = self._send_recv(msg)
 
-            try:
-                resp = cbor2.loads(resp) if resp else {}
-            except:
-                print("Bad CBOR rx'd from card:\n{B2A(resp)}")
-                raise RuntimeError('Bad CBOR from card')
+        try:
+            resp = cbor2.loads(resp) if resp else {}
+        except:
+            print("Bad CBOR rx'd from card:\n{B2A(resp)}")
+            raise RuntimeError('Bad CBOR from card')
 
-            if stat_word != SW_OKAY:
-                # Assume error if ANY bad SW value seen; promote for debug purposes
-                if 'error' not in resp:
-                    resp['error'] = "Got error SW value: 0x%04x" % stat_word
-                resp['stat_word'] = stat_word
+        if stat_word != SW_OKAY:
+            # Assume error if ANY bad SW value seen; promote for debug purposes
+            if 'error' not in resp:
+                resp['error'] = "Got error SW value: 0x%04x" % stat_word
+            resp['stat_word'] = stat_word
 
-            if VERBOSE:
-                if 'error' in resp:
-                    print(f"Command '{cmd}' => " + ', '.join(resp.keys()))
-                else:
-                    print(f"Command '{cmd}' => " + pformat(resp))
-
-            # just simple bad luck can fail a command, so retry for another
-            # number; exactly same request data is used.
-            if 'error' in resp and resp.get('code', 0) == 205:
-                continue
-            break
+        if VERBOSE:
+            if 'error' in resp:
+                print(f"Command '{cmd}' => " + ', '.join(resp.keys()))
+            else:
+                print(f"Command '{cmd}' => " + pformat(resp))
 
         if 'card_nonce' in resp:
             # many responses provide an updated card_nonce need for
@@ -232,6 +225,7 @@ class CKTapDeviceBase:
 
     # TODO
     # - get chain_code (derive cmd w/ nonce) and/or get "xpub"
+    # - 'blind sign' command which does the retries needed
 
 class CKTapCard(CKTapDeviceBase):
     #

@@ -77,7 +77,7 @@ def dump_dict(d):
         click.echo('%s: %s' % (k, v))
 
 def cleanup_cvc(cvc, missing_ok=False):
-    # Cleanup CVC provided (digits only) and prompt if needed, fail if invalid syntax
+    # Cleanup CVC provided (digits only) and prompt if needed, fail if wrong length
     if not cvc:
         if missing_ok:
             return None
@@ -90,7 +90,7 @@ def cleanup_cvc(cvc, missing_ok=False):
         return None
 
     if len(cvc) != CVC_LENGTH:
-        fail("Need 6-digit numeric code from back of card.")
+        fail(f"Need {CVC_LENGTH}-digit numeric code from back of card.")
 
     return cvc
     
@@ -322,7 +322,7 @@ def get_addr():
 @main.command('open')
 @click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
 def get_addr_open_app(slot):
-    "Get address and open associated bitcoin app to handle"
+    "Get address and open associated local Bitcoin app to handle it"
     card = get_card()
 
     addr = card.address(slot=slot)
@@ -332,6 +332,21 @@ def get_addr_open_app(slot):
     url = 'bitcoin:' + addr
 
     click.launch(url)
+
+@main.command('url')
+@click.option('--open-browser', '-o', is_flag=True, 
+                help="Launch web browser app to view the URL")
+def get_nfc_url(open_browser):
+    "Get website URL used for NFC verification, and optionally open it"
+    card = get_card()
+
+    r = card.send('nfc')
+    url = r['url']
+
+    click.echo(url)
+
+    if open_browser:
+        click.launch(url)
 
 @main.command('qr')
 @click.option('--outfile', '-o', metavar="filename.png",
@@ -451,10 +466,11 @@ def dump_wif(cvc, slot, bip178, bare):
     "Show WIF for last unsealed slot, or give slot number"
     card = get_card()
 
+    # guess most useful slot to show
     if slot == -1:
         st = card.send('status')
         active = st['slots'][0]
-        slot = active-1
+        slot = active-1 if active >= 1 else 0
 
     cvc = cleanup_cvc(cvc)
     
