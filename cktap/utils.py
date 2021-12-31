@@ -220,5 +220,47 @@ def render_sats_value(c, u):
     else:
         return f'-zero- (+{u:,} soon)'
 
+def url_decoder(fragment, is_testnet=False):
+    # Takes the URL (after the # part) and verifies it
+    # and returns dict of useful values, or raising on errors/frauds
+    from urllib.parse import parse_qsl
+
+    assert '#' not in fragment
+    assert '?' not in fragment
+
+    msg = fragment[0:fragment.rfind('=')+1]
+    raw = dict(parse_qsl(fragment, strict_parsing=True))
+
+    state = dict(S='sealed', U='unsealed', E='error/tampered').get(raw['u'], 'unknown state')
+    nonce = bytes.fromhex(raw['n'])
+    assert len(nonce) == 8
+    slot_num = int(raw.get('o', -1))
+    addr = raw.get('r', None)
+    sig = bytes.fromhex(raw['s'])
+    assert len(sig) == 64
+
+    md = sha256s(msg.encode('ascii'))
+
+    valid_sig = False
+    for rec_id in range(4):
+        # see BIP-137 for magic value "39"... perhaps not well supported tho
+        try:
+            pubkey = CT_sig_to_pubkey(md, bytes([39 + rec_id]) + sig)
+            valid_sig = True
+        except ValueError:
+            if rec_id >= 2: continue        # because crypto I don't understand
+            raise
+
+        if addr is not None:
+            got = render_address(pubkey, is_testnet)
+            if got.endswith(addr):
+                addr = got
+                break
+
+    if not valid_sig:
+        raise RuntimeError("Invalid link: signature does not verify")
+
+    return dict(state=state, addr=addr, nonce=nonce, slot_num=slot_num)
+
 
 # EOF

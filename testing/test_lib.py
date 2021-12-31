@@ -7,6 +7,7 @@ import pytest
 from cktap.constants import *
 from cktap.compat import *
 from cktap.utils import xor_bytes, verify_derive_address, render_address
+from cktap.utils import url_decoder
 
 def test_wrap():
     # crypto lib wrappers need to function
@@ -169,6 +170,27 @@ def test_get_usage_2(dev):
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
+
+def test_url_from_card(dev):
+    history = set()
+    for n in range(10):
+        prefix, frag = dev.get_nfc_url().split('#')
+        assert frag not in history, 'dup nonce?!'
+        history.add(frag)
+
+        r = url_decoder(frag, dev.is_testnet)
+        assert 'state' in r
+        if r.get('addr'):
+            exp = dev.address(slot=r['slot_num'], faster=True)
+            assert exp == r.get('addr')
+
+def test_url_decoder():
+    frag = 'u=U&o=1&r=mc0gk3l2&n=3efca6c545903a9a&s=a4020efe154842e6f97a363c08463c097da9edc6c5f2e909d4ec4a6605d99b8f3fa44fa9eed5768d562de2f21c85aab6c4b327519ab44c454eb80c6da14e34ec'
+    r = url_decoder(frag, True)
+    assert r['addr'] == 'tb1qh36pafmmawe337kn5c2a2wzanfpww3mc0gk3l2'
+    assert r['nonce'] == b'>\xfc\xa6\xc5E\x90:\x9a'
+    assert r['state'] == 'unsealed'
+    assert r['slot_num'] == 1
 
 if __name__ == '__main__':
     test_wrap()

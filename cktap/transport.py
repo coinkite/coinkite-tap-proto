@@ -53,6 +53,8 @@ def find_cards():
 
         if atr == CARD_ATR:
             yield CKTapCard(conn)
+        else:
+            print(f"Got ATR: {atr}")
 
 class CKTapDeviceBase:
     #
@@ -146,7 +148,7 @@ class CKTapDeviceBase:
         if raise_on_error and 'error' in resp:
             msg = resp.pop('error')
             code = resp.pop('code', 500)
-            raise CardRuntimeError(f'{code}: {msg}', (code, msg))
+            raise CardRuntimeError(f'{code} on {cmd}: {msg}', (code, msg))
 
         return resp
 

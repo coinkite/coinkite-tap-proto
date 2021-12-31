@@ -30,7 +30,7 @@ FACTORY_ROOT_KEYS = {
 }
 
 # our cards will provide this answer to reset (ATR)
-CARD_ATR = [59, 139, 128, 1, 80, 111, 108, 97, 114, 105, 115, 32, 33, 1, 17, 65]
+CARD_ATR = [59, 136, 128, 1] + list(b'Coinkite') + [49]
 
 # our Javacard applet has this APP ID
 APP_ID = bytes.fromhex('f0436f696e6b697465534154537631')
