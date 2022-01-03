@@ -192,6 +192,14 @@ def test_url_decoder():
     assert r['state'] == 'unsealed'
     assert r['slot_num'] == 1
 
+def test_nonce_quality():
+    from cktap.utils import pick_nonce
+
+    for i in range(1_000_000):
+        n = pick_nonce()
+        assert len(n) == USER_NONCE_SIZE
+        assert len(set(n)) >= 2
+
 if __name__ == '__main__':
     test_wrap()
     test_connection()
