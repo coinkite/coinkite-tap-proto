@@ -11,7 +11,7 @@ NUM_SLOTS = 10
 # - see also many text messages to user about this
 CVC_LENGTH = 6
 
-# no need to scan blockchain before this point in time
+# no need to scan the blockchain before this point in time, since product didn't exist yet
 # TODO: update to a date closer to product launch
 PROJECT_EPOC_TIME_T = 1637600000
 

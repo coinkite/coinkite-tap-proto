@@ -226,7 +226,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     # TODO: 
     # - using <https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki>
     # - build a message digest, based on BIP-340 "tagged hash" and a fake to_sign txn
-    # - send to card
+    # - send digest to card
     # - serialize result, which includes to_sign txn
 
     # XXX until then, pretend we are living in a simple 2010 world.
@@ -235,7 +235,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     md = sha256s(sha256s(xmsg))
 
     cvc = cleanup_cvc(cvc)
-    ses_key, resp = card.send_auth('blind', cvc, slot=slot, digest=md)
+    ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md)
 
     addr = card.address(slot=slot)
 
@@ -378,7 +378,7 @@ def dump_slot(slot, cvc):
 @main.command('check')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def check_cvc(cvc):
-    "Check you have the spending code correct. Does nothing with it"
+    "Verify you have the spending code (CVC) correct. Does nothing with it"
 
     card = get_card()
     cvc = cleanup_cvc(cvc)

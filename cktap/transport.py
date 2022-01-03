@@ -72,6 +72,7 @@ class CKTapDeviceBase:
         self.applet_version = st['ver']
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
+        self.auth_delay = st.get('auth_delay', 0)
         self.active_slot, self.num_slots = st['slots']
         assert self.card_nonce      # self.send() will have captured from first status req
         self._certs_checked = False
@@ -89,9 +90,9 @@ class CKTapDeviceBase:
         raise NotImplementedError
 
     def send_auth(self, cmd, cvc, **args):
-        # clean up, do crypto and provide the CVC in encrypted form
+        # clean up CVC, do crypto and provide the CVC in encrypted form
         # - returns session key and usual results
-        # - skip if CVC is none, just do normal stuff
+        # - skip if CVC is none and just do normal stuff (optional auth on some cmds)
 
         if cvc:
             cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
@@ -102,7 +103,7 @@ class CKTapDeviceBase:
 
         # One single command takes an encrypted argument (most are returning encrypted
         # results) and the caller didn't know the session key yet. So xor it for them.
-        if cmd == 'blind':
+        if cmd == 'sign':
             args['digest'] = xor_bytes(args['digest'], session_key)
 
         return session_key, self.send(cmd, **args)
@@ -294,7 +295,7 @@ class CKTapDeviceBase:
 
     # TODO
     # - get chain_code (derive cmd w/ nonce) and/or get "xpub"
-    # - 'blind sign' command which does the retries needed
+    # - 'sign' command which does the retries needed
 
 class CKTapCard(CKTapDeviceBase):
     #
