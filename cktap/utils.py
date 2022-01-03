@@ -16,7 +16,13 @@ def xor_bytes(a, b): # XOR the bytes of A and B
 
 def pick_nonce():
     # pick a nonce for our side
-    return os.urandom(USER_NONCE_SIZE)
+    # - must always be a "non trival" value or else card will reject
+    for retry in range(3):
+        rv = os.urandom(USER_NONCE_SIZE)
+        if rv[0] != rv[-1] or len(set(rv)) >= 2:
+            return rv
+
+    raise RuntimeError("stuck RNG?")
 
 # Serialization/deserialization tools
 def ser_compact_size(l):
