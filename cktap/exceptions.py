@@ -5,8 +5,9 @@
 #
 
 class CardRuntimeError(RuntimeError):
-    def __init__(self, msg, code):
+    def __init__(self, msg, code, raw_msg):
         self.code = code
+        self.raw_msg = msg
         super().__init__(msg)
 
 # EOF

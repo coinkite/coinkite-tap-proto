@@ -149,7 +149,7 @@ class CKTapDeviceBase:
         if raise_on_error and 'error' in resp:
             msg = resp.pop('error')
             code = resp.pop('code', 500)
-            raise CardRuntimeError(f'{code} on {cmd}: {msg}', (code, msg))
+            raise CardRuntimeError(f'{code} on {cmd}: {msg}', code, msg)
 
         return resp
 

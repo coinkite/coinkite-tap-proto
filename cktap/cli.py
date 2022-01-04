@@ -383,13 +383,25 @@ def check_cvc(cvc):
     card = get_card()
     cvc = cleanup_cvc(cvc)
 
-    # do a dump command
-    ses_key, resp = card.send_auth('dump', cvc, slot=0)
+    if card.auth_delay:
+        with click.progressbar(label="Requires security delay", length=card.auth_delay) as bar:
+            for n in range(card.auth_delay):
+                card.send('unlock')
+                bar.update(1)
 
-    if 'error' in resp:
-        fail(resp['error'])
+    # do a dump command
+    try:
+        ses_key, resp = card.send_auth('dump', cvc, slot=0)
+        click.echo("Code is correct.")
+    except CardRuntimeError as exc:
+        if exc.code == 429:
+            # not expected
+            fail("Rate limited. Need to wait.")
+        elif exc.code == 401:
+            fail("Incorrect code.")
+        else:
+            raise
     
-    click.echo("Code is correct.")
         
 @main.command('certs')
 def check_certs():

@@ -33,7 +33,7 @@ FACTORY_ROOT_KEYS = {
 CARD_ATR = [59, 136, 128, 1] + list(b'Coinkite') + [49]
 
 # our Javacard applet has this APP ID
-APP_ID = bytes.fromhex('f0436f696e6b697465534154537631')
+APP_ID = bytes.fromhex('f0436f696e6b697465434152447631')
 
 # APDU CLA and INS fields for our one APDU, which uses CBOR data
 CBOR_CLA = 0x00
