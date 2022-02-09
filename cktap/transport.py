@@ -11,6 +11,7 @@ from hashlib import sha256
 from .utils import *
 from .constants import *
 from .exceptions import CardRuntimeError
+from pprint import pformat
 
 # single-shot SHA256
 sha256s = lambda msg: sha256(msg).digest()
@@ -56,6 +57,12 @@ def find_cards():
         else:
             print(f"Got ATR: {atr}")
 
+''' refactor TODO
+- CKTapDeviceBase => TransportBase
+- new file, "controller" whihc does highlevel
+- etc
+'''
+
 class CKTapDeviceBase:
     #
     # Abstract base class
@@ -73,13 +80,15 @@ class CKTapDeviceBase:
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
         self.auth_delay = st.get('auth_delay', 0)
-        self.active_slot, self.num_slots = st['slots']
+        self.is_tapsigner =  st.get('tapsigner', False)
+        self.active_slot, self.num_slots = st.get('slots', (0,1))
         assert self.card_nonce      # self.send() will have captured from first status req
         self._certs_checked = False
 
     def __repr__(self):
         kk = b2a_hex(self.pubkey).decode('ascii')[-8:] if hasattr(self, 'pubkey') else '???'
-        return '<%s: card_pubkey=...%s> ' % (self.__class__.__name__, kk)
+        ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
+        return '<%s %s: card_pubkey=...%s> ' % (self.__class__.__name__, ty, kk)
 
     def _send_recv(self, msg):
         # do CBOR encoding and round-trip the request + response
@@ -119,13 +128,17 @@ class CKTapDeviceBase:
         args['cmd'] = cmd
         msg = cbor2.dumps(args)
 
+        if VERBOSE:
+            print(f">> {cmd} (%s)" % ', '.join(k+'='+(str(v) if len(str(v)) < 9 else '...')
+                                            for k,v in args.items() if k != 'cmd'))
+
         # Send and wait for reply
         stat_word, resp = self._send_recv(msg)
 
         try:
             resp = cbor2.loads(resp) if resp else {}
         except:
-            print("Bad CBOR rx'd from card:\n{B2A(resp)}")
+            #print("Bad CBOR rx'd from card:\n{B2A(resp)}")
             raise RuntimeError('Bad CBOR from card')
 
         if stat_word != SW_OKAY:
@@ -134,11 +147,13 @@ class CKTapDeviceBase:
                 resp['error'] = "Got error SW value: 0x%04x" % stat_word
             resp['stat_word'] = stat_word
 
+            
         if VERBOSE:
-            if 'error' in resp:
-                print(f"Command '{cmd}' => " + ', '.join(resp.keys()))
+            print("<< ", end='')
+            if 'error' not in resp:
+                print(', '.join(resp.keys()))
             else:
-                print(f"Command '{cmd}' => " + pformat(resp))
+                print(pformat(resp))
 
         if 'card_nonce' in resp:
             # many responses provide an updated card_nonce needed for
@@ -160,6 +175,7 @@ class CKTapDeviceBase:
         # Get current payment address for card
         # - does 100% full verification by default
         # - returns a bech32 address as a string
+        assert not self.is_tapsigner
 
         # check certificate chain
         if not self._certs_checked and not faster:
@@ -211,6 +227,31 @@ class CKTapDeviceBase:
 
         return addr
 
+    def get_derivation(self):
+        # TAPSIGNER only: what's the current derivation path, which might be
+        # just empty (aka 'm').
+        assert self.is_tapsigner
+        st = self.send('status')
+        path = st.get('path', None)
+        if path is None:
+            #raise RuntimeError("no private key picked yet, so no derivation")
+            return None
+        return path2str(path)
+
+    def set_derivation(self, path, cvc):
+        # TAPSIGNER only: what's the current derivation path, which might be
+        # just empty (aka 'm').
+        assert self.is_tapsigner
+        np = str2path(path)
+
+        if not all_hardened(np):
+            raise ValueError("All path components must be hardened")
+
+        _, resp = self.send_auth('derive', cvc, path=np, nonce=pick_nonce())
+        # XXX need FP of parent key and master (XFP)
+        # XPUB would be better result here
+        return len(np), resp['chain_code'], resp['pubkey']
+
     def certificate_check(self):
         # Verify the certificate chain and the public key of the card
         # - assures this card was produced in Coinkite factory
@@ -228,6 +269,7 @@ class CKTapDeviceBase:
     def unseal_slot(self, cvc):
         # Unseal the current slot (can only be one)
         # - returns (privkey, slot_num)
+        assert not self.is_tapsigner
 
         # only one possible value for slot number
         target = self.active_slot
@@ -253,6 +295,7 @@ class CKTapDeviceBase:
 
     def get_privkey(self, cvc, slot):
         # Provide the private key of an already-unsealed slot (32 bytes)
+        assert not self.is_tapsigner
         ses_key, resp = self.send_auth('dump', cvc, slot=slot)
 
         if 'privkey' not in resp:
@@ -270,6 +313,7 @@ class CKTapDeviceBase:
         # Get address and status for a slot, CVC is optional
         # returns:
         #   (addr, status, detail_map) 
+        assert not self.is_tapsigner
         session_key, here = self.send_auth('dump', cvc, slot=slot)
 
         addr = here.get('addr', None)

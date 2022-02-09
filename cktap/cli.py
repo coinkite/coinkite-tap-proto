@@ -40,11 +40,16 @@ def fail(msg):
     click.echo(msg)
     sys.exit(1)
 
-def get_card():
+def get_card(only_satscard=False, only_tapsigner=False):
     # Pick a card to work with
     global global_opts
     pk_filter = (global_opts.get('card_pubkey') or '').lower()
     wait_for_it = global_opts.get('wait', False)
+
+    be_verbose = global_opts.get('verbose', False)
+    if be_verbose:
+        import cktap.transport as tt
+        tt.VERBOSE = True
 
     first = True
     while 1:
@@ -53,10 +58,15 @@ def get_card():
                 if not B2A(c.pubkey).endswith(pk_filter):
                     c.close()
                     continue
+            if only_satscard and c.is_tapsigner: continue
+            if only_tapsigner and not c.is_tapsigner: continue
             return c
 
         if not wait_for_it: 
-            fail("No cards found. Is it in place on reader?")
+            subset = 'matching' if pk_filter else 'suitable'
+            if only_tapsigner: subset = 'TAPSIGNER' 
+            if only_satscard: subset = 'SATSCARD'
+            fail(f"No {subset} cards found. Is it in place on reader?")
 
         if first:
             click.echo("Waiting for card...")
@@ -137,14 +147,18 @@ class AliasedGroup(click.Group):
                     help="Operate on specific card (rightmost hex digits of public key)")
 @click.option('--wait', '-w', is_flag=True, 
                     help="Waits until a card is in place.")
+@click.option('--verbose', '-v', is_flag=True, 
+                    help="Show traffic with card.")
 @click.option('--pdb', is_flag=True, 
                     help="Prepare patient for surgery to remove bugs.")
 def main(**kws):
     '''
-    Control and interact with SATSCARD via NFC tap.
+    Interact with SATSCARD and TAPSIGNER cards via NFC tap.
 
+    Command makred [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
 
     You can use "bal", or "b" for "balance": any distinct prefix for all commands.
+
     '''
 
     # implement PDB option here
@@ -192,19 +206,21 @@ def interactive_debug():
     import pdb
     from pdb import pm
     C = get_card()
-    G = C.send
+    S = C.send
+    SA = C.send_auth
 
     cli = HistoryConsole(locals=dict(globals(), **locals()))
-    cli.interact(banner="Go for it: 'C' is the connected card, G=C.send ... G('status')", exitmsg='')
+    cli.interact(banner="""\
+Go for it: 'C' is the connected card, S=C.send ... S('status') SA('cmd', cvc, ...)""", exitmsg='')
 
 @main.command('chain')
 def get_block_chain():
-    '''Get which blockchain (Bitcoin/Testnet) is configured.
+    '''[SC] Get which blockchain (Bitcoin/Testnet) is configured.
 
     BTC=>Bitcoin  or  XTN=>Bitcoin Testnet
     '''
 
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     click.echo('XTN' if card.is_testnet else 'BTC')
 
@@ -278,10 +294,10 @@ def list_cards():
 @main.command('usage')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def get_usage(cvc):
-    "Show slots usage so far."
+    "[SC] Show slots usage so far."
 
     cvc = cleanup_cvc(cvc, missing_ok=True)
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     print('SLOT# |  STATUS  | ADDRESS')
     print('------+----------+-------------')
@@ -304,8 +320,8 @@ def get_addr():
 @main.command('open')
 @click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
 def get_addr_open_app(slot):
-    "Get address and open associated local Bitcoin app to handle it"
-    card = get_card()
+    "[SC] Get address and open associated local Bitcoin app to handle it"
+    card = get_card(only_satscard=True)
 
     addr = card.address(slot=slot)
     if not addr:
@@ -366,8 +382,8 @@ def get_deposit_qr(outfile, slot, error_mode):
 @click.argument('slot', type=int, metavar="[SLOT#]", required=False, default=0)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def dump_slot(slot, cvc):
-    "Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
-    card = get_card()
+    "[SC] Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
+    card = get_card(only_satscard=True)
 
     session_key, resp = card.send_auth('dump', cleanup_cvc(cvc, missing_ok=True), slot=slot)
     if 'privkey' in resp:
@@ -390,8 +406,16 @@ def check_cvc(cvc):
                 bar.update(1)
 
     # do a dump command
+    if card.is_tapsigner:
+        # need a command w/o side effects for TS
+        cmd = 'read'
+        args = dict()
+    else:
+        cmd = 'dump'
+        args = dict(slot=0)
+
     try:
-        ses_key, resp = card.send_auth('dump', cvc, slot=0)
+        ses_key, resp = card.send_auth(cmd, cvc, **args)
         click.echo("Code is correct.")
     except CardRuntimeError as exc:
         if exc.code == 429:
@@ -401,6 +425,29 @@ def check_cvc(cvc):
             fail("Incorrect code.")
         else:
             raise
+
+@main.command('path')
+def get_path():
+    "[TS] Show the subkey derivation path in effect"
+    card = get_card(only_tapsigner=True)
+
+    path = card.get_derivation()
+    if path == None:
+        fail("NONE (no key picked yet)")
+    else:
+        print(path)
+    
+@main.command('derive')
+@click.argument('path', type=str, metavar="84h/0h/0h", required=True)
+@click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
+def set_derivation(path, cvc):
+    "[TS] Pick the subkey derivation path to use"
+    card = get_card(only_tapsigner=True)
+
+    child_depth, cc, pub = card.set_derivation(path, cleanup_cvc(cvc))
+
+    print(cc.hex())
+    print(pub.hex())
     
         
 @main.command('certs')
@@ -416,9 +463,9 @@ def check_certs():
 @main.command('unseal')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def unseal_slot(cvc):
-    "Unseal current slot and reveal private key. Does not setup next slot."
+    "[SC] Unseal current slot and reveal private key. Does not setup next slot."
 
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     cvc = cleanup_cvc(cvc)
 
@@ -435,8 +482,8 @@ def unseal_slot(cvc):
                 help="Remove text prefix proposed by Electrum")
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def dump_wif(cvc, slot, bip178, bare):
-    "Show WIF for last unsealed slot, or give slot number"
-    card = get_card()
+    "[SC] Show WIF for last unsealed slot, or give slot number"
+    card = get_card(only_satscard=True)
 
     # guess most useful slot to show
     if slot == -1:
@@ -470,21 +517,28 @@ def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
 @click.option('--chain-code', '-c', type=str, metavar="HEX",
                 help="Chain code to be used for XPRV of resulting slot (32 bytes)")
 @click.option('--new-chain-code', '-n', is_flag=True, 
-                help="Pick a fresh chain code randomly.")
+                help="Pick a fresh chain code randomly [TS=default].")
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def setup_slot(cvc, chain_code, new_chain_code):
-    "Setup next slot with a fresh private key (not shown)."
+    "Setup next slot with a fresh private key."
 
     card = get_card()
 
-    # only one possible value for slot number
-    target = card.active_slot
+    if card.is_tapsigner:
+        # simpler?
+        target = 0
+        if not chain_code:
+            new_chain_code = True
+    else:
+        # SATSCARD
+        # only one possible value for slot number
+        target = card.active_slot
 
-    # but that slot must be un-used.
-    resp = card.send('dump', slot=target)
+        # but that slot must be un-used.
+        resp = card.send('dump', slot=target)
 
-    if resp.get('used', True):
-        fail(f"Slot {target} has been used already. Unseal it, and move to next")
+        if resp.get('used', True):
+            fail(f"Slot {target} has been used already. Unseal it, and move to next")
 
     args = dict(slot=target)
 
@@ -507,19 +561,22 @@ def setup_slot(cvc, chain_code, new_chain_code):
     cvc = cleanup_cvc(cvc)
     ses_key, resp = card.send_auth('new', cvc, **args)
 
-    # only one field: new slot number
-    card.active_slot = resp['slot']
+    if card.is_tapsigner:
+        click.echo('TAPSIGNER ready')
+    else:
+        # only one field: new slot number
+        card.active_slot = resp['slot']
 
-    click.echo(card.address())
+        click.echo(card.address())
 
 @main.command('balance')
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
 def show_balance(cvc):
-    "Show the balance held on all slots"
+    "[SC] Show the balance held on all slots"
     from cktap.sweep import UTXOList
 
     cvc = cleanup_cvc(cvc, missing_ok=True)
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     rv = []
     click.echo('%-42s | Balance' % 'Address')

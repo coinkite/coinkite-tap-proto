@@ -35,6 +35,35 @@ def ser_compact_size(l):
     else:
         return struct.pack("<BQ", 255, l)
 
+# high bit set in LE32 indicating hardened BIP-32 path component
+HARDENED = 0x8000_0000
+
+def path2str(path):
+    # take numeric path (list of numbers) and convert to human form
+    # - standardizing on "m/84h" style
+    return '/'.join(['m'] + [ str(i & ~HARDENED)+('h' if i&HARDENED else '') for i in path])
+
+def str2path(path):
+    # normalize notation and return numbers, no error checking
+    rv = []
+
+    for i in path.split('/'):
+        if i == 'm': continue
+        if not i: continue      # trailing or duplicated slashes
+
+        if i[-1] in "p'h":
+            here = int(i[:-1]) | HARDENED
+        else:
+            here = int(i)
+
+        rv.append(here)
+
+    return rv
+
+# predicates for numeric paths. stop giggling
+all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
+none_hardened = lambda path: not any(bool(i & HARDENED) for i in path)
+
 
 def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     # Verify the certificate chain works, returns label for pubkey recovered from signatures.
