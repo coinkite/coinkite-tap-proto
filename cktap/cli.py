@@ -9,7 +9,7 @@
 # That will create the command "cktap" in your path.
 #
 #
-import click, sys, os, pdb, time, json
+import click, sys, os, pdb, time, json, datetime
 from pprint import pformat
 from binascii import b2a_hex, a2b_hex
 from functools import wraps
@@ -667,5 +667,99 @@ def card_status():
             print(f'No key picked yet')
     else:
         print(f'Address: ' + card.address())
+
+@main.command('xpub')
+@click.option('--master', '-m', is_flag=True, help="Show master XPUB instead of derived")
+@click.option('--show-path', '-p', is_flag=True, help="Show path as well")
+@click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
+def get_xpub(master, cvc, show_path):
+    "[TS] Show the xpub in use"
+    # meant as a starting point? no auth
+    # TODO: make more useful, and be default cmd?
+
+    cvc = cleanup_cvc(cvc)
+    card = get_card(only_tapsigner=True)
+
+    if show_path and not master:
+        click.echo(card.get_derivation() + '\n')
+
+    xpub = card.get_xpub(cvc, master)
+
+    click.echo(xpub)
+
+@main.command('json')
+@click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
+def json_dump(cvc):
+    "[TS] Dump wallet values in JSON format similar to Coldcard export."
+
+    # - assumes you want specific BIP based on path observed
+    # - change derivation before calling this if not what you want
+
+    card = get_card(only_tapsigner=True)
+    cvc = cleanup_cvc(cvc)
+
+    path = card.get_derivation()
+    assert path.startswith('m')
+    path_comps = path.split('/')[1:]
+
+    xfp = card.get_xfp(cvc).hex().upper()
+    root_xpub = card.get_xpub(cvc, True)
+    derived_xpub = card.get_xpub(cvc, False)
+
+    # Mostly compat with Coldcard generic wallet export, but only one XPUB
+    # see: coldcard/firmware/shared/export.py in generate_generic_export()
+
+    rv = dict(chain='BTC' if not card.is_testnet else 'XTN',
+                xpub = root_xpub,
+                xfp = xfp,
+                card_ident = card.card_ident,
+            )
+
+    if len(path_comps) == 3:
+        rv['account'] = int(path_comps[-1][:-1])
+
+    if len(path_comps) >= 2:
+        # assuming BIP-44 compliance here
+        bip_num = int(path_comps[0][:-1])
+        if bip_num in { 44, 49, 84 }:
+            rv[f'bip_{bip_num}'] = dict(deriv=path, xpub=derived_xpub,
+                                        xfp=xfp, name=f'BIP-{bip_num}')
+
+    print(json.dumps(rv, indent=2))
+
+@main.command('backup')
+@click.option('--outfile', '-o', metavar="filename.aes",
+                        help="File to save into", default=None, type=str)
+@click.option('--wrap-shell', '-s', is_flag=True, help="Wrap into shell script")
+@click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
+def do_backup(cvc, outfile, wrap_shell):
+    "[TS] Backup private key from card into AES-128-CTR encrypted file"
+    cvc = cleanup_cvc(cvc)
+    card = get_card(only_tapsigner=True)
+    import datetime
+    from base64 import b64encode
+
+    if not outfile:
+        nowish = datetime.datetime.now().isoformat()[0:16].replace(':', '')
+        outfile = f'backup-{card.card_ident[0:8]}-{nowish}.' + ('sh' if wrap_shell else 'aes')
+
+    enc = card.make_backup(cvc)
+
+    with open(outfile, 'wt' if wrap_shell else 'wb') as fp:
+        if not wrap_shell:
+            fp.write(enc)
+        else:
+            b6 = b64encode(enc).decode('ascii')
+            print(f'''\
+#!/bin/sh
+read -p "Key from back of card: " KEY
+base64 -d <<END-OF-DATA | openssl aes-128-ctr -d -iv 0 -K $KEY | hexdump -C
+{b6}
+END-OF-DATA
+echo "Look for 'chain_code' and 'priv_key' above."
+echo "It's CBOR encoded data, visit https://cbor.io to decode."
+''', file=fp)
+
+        print(f"Wrote {fp.tell()} bytes to: {fp.name}")
 
 # EOF
