@@ -85,6 +85,8 @@ class CKTapDeviceBase:
         assert self.card_nonce      # self.send() will have captured from first status req
         self._certs_checked = False
 
+        self.card_ident = sha256(st.get('pubkey')).digest().hex()
+
     def __repr__(self):
         kk = b2a_hex(self.pubkey).decode('ascii')[-8:] if hasattr(self, 'pubkey') else '???'
         ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'

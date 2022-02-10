@@ -16,7 +16,7 @@ from functools import wraps
 from getpass import getpass
 
 from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
-from .utils import make_recoverable_sig, render_sats_value
+from .utils import make_recoverable_sig, render_sats_value, path2str
 from .compat import sha256s
 from .constants import *
 from .exceptions import CardRuntimeError
@@ -63,10 +63,10 @@ def get_card(only_satscard=False, only_tapsigner=False):
             return c
 
         if not wait_for_it: 
-            subset = 'matching' if pk_filter else 'suitable'
-            if only_tapsigner: subset = 'TAPSIGNER' 
+            subset = 'matching cards' if pk_filter else 'suitable cards'
+            if only_tapsigner: subset = 'TAPSIGNER cards' 
             if only_satscard: subset = 'SATSCARD'
-            fail(f"No {subset} cards found. Is it in place on reader?")
+            fail(f"No {subset} found. Is it in place on reader?")
 
         if first:
             click.echo("Waiting for card...")
@@ -131,7 +131,7 @@ class AliasedGroup(click.Group):
             return None
         elif len(matches) == 1:
             return click.Group.get_command(self, ctx, matches[0])
-        ctx.fail(f"Abiguous command. Pick one of: {', '.join(sorted(matches))}")
+        ctx.fail(f"Abiguous command. Pick one of: {' | '.join(sorted(matches))}")
 
     def resolve_command(self, ctx, args):
         # always return the full command name
@@ -649,5 +649,23 @@ def export_to_core(cvc, pretty):
     click.echo('importmulti \'%s\'' % json.dumps(rv, indent=(2 if pretty else None)))
 
     
+@main.command('status')
+def card_status():
+    "Show a few things about status of card"
+    # meant as a starting point? no auth
+    # TODO: make more useful, and be default cmd?
+    card = get_card()
+    st = card.send('status')
+    print("TAPSIGNER Card:" if st.get('tapsigner', False) else 'SATSCARD:')
+
+    if card.is_tapsigner:
+        print(f'Card ident: ' + card.card_ident)
+        print(f'Number of backups: {st["num_backups"]}')
+        if 'path' in st:
+            print(f'Current derivation: ' + path2str(st['path']))
+        else:
+            print(f'No key picked yet')
+    else:
+        print(f'Address: ' + card.address())
 
 # EOF
