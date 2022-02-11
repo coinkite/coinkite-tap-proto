@@ -12,6 +12,7 @@ from .utils import *
 from .constants import *
 from .exceptions import CardRuntimeError
 from pprint import pformat
+from .compat import hash160
 
 # single-shot SHA256
 sha256s = lambda msg: sha256(msg).digest()
@@ -106,16 +107,17 @@ class CKTapDeviceBase:
         # - skip if CVC is none and just do normal stuff (optional auth on some cmds)
 
         if cvc:
-            cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
             session_key, auth_args = calc_xcvc(cmd, self.card_nonce, self.pubkey, cvc)
             args.update(auth_args)
         else:
             session_key = None
 
-        # One single command takes an encrypted argument (most are returning encrypted
+        # A few commands take an encrypted argument (most are returning encrypted
         # results) and the caller didn't know the session key yet. So xor it for them.
         if cmd == 'sign':
             args['digest'] = xor_bytes(args['digest'], session_key)
+        elif cmd == 'change':
+            args['data'] = xor_bytes(args['data'], session_key[0:len(args['data'])])
 
         return session_key, self.send(cmd, **args)
 
@@ -254,6 +256,31 @@ class CKTapDeviceBase:
         # XPUB would be better result here
         return len(np), resp['chain_code'], resp['pubkey']
 
+    def get_xfp(self, cvc):
+        # fetch master xpub, take pubkey from that and calc XFP
+        assert self.is_tapsigner
+        _, st = self.send_auth('xpub', cvc, master=True)
+        xpub = st['xpub']
+        return hash160(xpub[-33:])[0:4]
+
+    def get_xpub(self, cvc, master=False):
+        # provide XPUB, either derived or master one (BIP-32 serialized and base58 encoded)
+        assert self.is_tapsigner
+        _, st = self.send_auth('xpub', cvc, master=master)
+        xpub = st['xpub']
+        return base58.b58encode_check(xpub).decode('ascii')
+
+    def make_backup(self, cvc):
+        # read the backup file; gives ~100 bytes to be kept long term
+        assert self.is_tapsigner
+        _, st = self.send_auth('backup', cvc)
+        return st['data']
+
+    def change_cvc(self, old_cvc, new_cvc):
+        # Change CVC. Note: can be binary or ascii or digits, 6..32 long
+        assert 6 <= len(new_cvc) <= 32
+        _, st = self.send_auth('change', old_cvc, data=force_bytes(new_cvc))
+
     def certificate_check(self):
         # Verify the certificate chain and the public key of the card
         # - assures this card was produced in Coinkite factory
@@ -265,8 +292,10 @@ class CKTapDeviceBase:
         n = pick_nonce()
         check = self.send('check', nonce=n)
 
-        verify_certs(st, check, certs, n)
+        rv = verify_certs(st, check, certs, n)
         self._certs_checked = True
+
+        return rv
 
     def unseal_slot(self, cvc):
         # Unseal the current slot (can only be one)

@@ -120,14 +120,17 @@ def recover_address(status_resp, read_resp, my_nonce):
 
     return pubkey, addr
 
+def force_bytes(foo):
+    # convert strings to bytes where needed
+    return foo.encode('ascii') if isinstance(foo, str) else foo
+
 def calc_xcvc(cmd, card_nonce, his_pubkey, cvc):
     # Calcuate session key and xcvc value need for auth'ed commands
     # - also picks an arbitrary keypair for my side of the ECDH?
     # - requires pubkey from card and proposed CVC value
     assert 6 <= len(cvc) <= 32
 
-    if isinstance(cvc, str):
-        cvc = cvc.encode('ascii')
+    cvc = force_bytes(cvc)
 
     # fresh new ephemeral key for our side of connection
     my_privkey, my_pubkey = CT_pick_keypair()
@@ -201,7 +204,7 @@ def verify_derive_address(chain_code, master_pub, testnet=False):
     return render_address(pubkey, testnet=testnet), pubkey
 
 
-def make_recoverable_sig(digest, sig, addr, is_testnet=False):
+def make_recoverable_sig(digest, sig, addr=None, expect_pubkey=None, is_testnet=False):
     # The card will only make non-recoverable signatures (64 bytes)
     # but we usually know the address which should be implied by
     # the signature's pubkey, so we can try all values and discover
@@ -217,12 +220,18 @@ def make_recoverable_sig(digest, sig, addr, is_testnet=False):
         except ValueError:
             if rec_id >= 2: continue        # because crypto I don't understand
     
-        got = render_address(pubkey, is_testnet)
-        if got.endswith(addr):
+        if expect_pubkey:
+            if expect_pubkey != pubkey:
+                continue
+        if addr:
+            got = render_address(pubkey, is_testnet)
+            if got.endswith(addr):
+                return rec_sig
+        else:
             return rec_sig
 
     # failed to recover right pubkey value
-    raise ValueError("sig may not be created by that address??")
+    raise ValueError("sig may not be created by that address/pubkey??")
 
 
 def str_to_int_path(path):

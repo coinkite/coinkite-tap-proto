@@ -87,21 +87,29 @@ def dump_dict(d):
 
         click.echo('%s: %s' % (k, v))
 
-def cleanup_cvc(cvc, missing_ok=False):
+def cleanup_cvc(card, cvc, missing_ok=False, prompt="spending code"):
     # Cleanup CVC provided (digits only) and prompt if needed, fail if wrong length
     if not cvc:
         if missing_ok:
             return None
-        cvc = getpass("Enter spending code (6 digits): ")
+        cvc = getpass(f"Enter {prompt}: ")
 
-    cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
+    if not card.is_tapsigner:
+        # remove non-digits
+        cvc = cvc[0:0].join(d for d in cvc if d.isdigit())
 
     if not cvc and missing_ok:
         # blank/empty response, ok in this case
         return None
 
-    if len(cvc) != CVC_LENGTH:
-        fail(f"Need {CVC_LENGTH}-digit numeric code from back of card.")
+    if card.is_tapsigner:
+        if len(cvc) < 6:
+            fail(f"CVC is too short, must be at least 6 chars.")
+        if len(cvc) > 32:
+            fail(f"CVC is too long, must be at most 32 chars.")
+    else:
+        if len(cvc) != CVC_LENGTH:
+            fail(f"Need {CVC_LENGTH}-digit numeric code from back of card.")
 
     return cvc
     
@@ -228,7 +236,7 @@ def get_block_chain():
 @main.command('msg')
 @click.argument('message')
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
-@click.option('--verbose', '-v', is_flag=True, help='Include full ascii armour')
+@click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
 def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
@@ -236,6 +244,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     from base64 import b64encode
 
     card = get_card()
+    cvc = cleanup_cvc(card, cvc)
 
     message = message.encode('ascii') if not isinstance(message, bytes) else message
 
@@ -250,14 +259,20 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
 
-    cvc = cleanup_cvc(cvc)
     ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md)
+    expect_pub = resp['pubkey']
 
-    addr = card.address(slot=slot)
+    if card.is_tapsigner:
+        addr = None
+        just_sig = True
+    else:
+        addr = card.address(slot=slot)
 
     # problem: not a recoverable signature, need to calc recid based on our
     # knowledge of address
-    raw = make_recoverable_sig(md, resp['sig'], addr, card.is_testnet)
+    raw = make_recoverable_sig(md, resp['sig'],
+                                addr=addr, expect_pubkey=expect_pub,
+                                is_testnet=card.is_testnet)
 
     sig = str(b64encode(raw), 'ascii').replace('\n', '')
 
@@ -296,8 +311,8 @@ def list_cards():
 def get_usage(cvc):
     "[SC] Show slots usage so far."
 
-    cvc = cleanup_cvc(cvc, missing_ok=True)
     card = get_card(only_satscard=True)
+    cvc = cleanup_cvc(card, cvc, missing_ok=True)
 
     print('SLOT# |  STATUS  | ADDRESS')
     print('------+----------+-------------')
@@ -306,10 +321,10 @@ def get_usage(cvc):
         
         print('%3d   | %-8s | %s' % (slot, status, addr or ''))
 
-@main.command('addr')
+@main.command('addresss')
 def get_addr():
-    "Show current deposit address"
-    card = get_card()
+    "[SC] Show current deposit address"
+    card = get_card(only_satscard=True)
 
     addr = card.address()
     if not addr:
@@ -385,7 +400,7 @@ def dump_slot(slot, cvc):
     "[SC] Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
     card = get_card(only_satscard=True)
 
-    session_key, resp = card.send_auth('dump', cleanup_cvc(cvc, missing_ok=True), slot=slot)
+    session_key, resp = card.send_auth('dump', cleanup_cvc(card, cvc, missing_ok=True), slot=slot)
     if 'privkey' in resp:
         resp['privkey'] = xor_bytes(session_key, resp['privkey'])
 
@@ -397,7 +412,7 @@ def check_cvc(cvc):
     "Verify you have the spending code (CVC) correct. Does nothing with it"
 
     card = get_card()
-    cvc = cleanup_cvc(cvc)
+    cvc = cleanup_cvc(card, cvc)
 
     if card.auth_delay:
         with click.progressbar(label="Requires security delay", length=card.auth_delay) as bar:
@@ -407,7 +422,7 @@ def check_cvc(cvc):
 
     # do a dump command
     if card.is_tapsigner:
-        # need a command w/o side effects for TS
+        # XXX need a command w/o side effects for TS
         cmd = 'read'
         args = dict()
     else:
@@ -444,7 +459,7 @@ def set_derivation(path, cvc):
     "[TS] Pick the subkey derivation path to use"
     card = get_card(only_tapsigner=True)
 
-    child_depth, cc, pub = card.set_derivation(path, cleanup_cvc(cvc))
+    child_depth, cc, pub = card.set_derivation(path, cleanup_cvc(card, cvc))
 
     print(cc.hex())
     print(pub.hex())
@@ -466,8 +481,7 @@ def unseal_slot(cvc):
     "[SC] Unseal current slot and reveal private key. Does not setup next slot."
 
     card = get_card(only_satscard=True)
-
-    cvc = cleanup_cvc(cvc)
+    cvc = cleanup_cvc(card, cvc)
 
     pk, slot_num = card.unseal_slot(cvc)
 
@@ -494,7 +508,7 @@ def dump_wif(cvc, slot, bip178, bare):
     if bip178:
         bare = True
 
-    cvc = cleanup_cvc(cvc)
+    cvc = cleanup_cvc(card, cvc)
     pk = card.get_privkey(cvc, slot)
     wif = render_wif(pk, bip_178=bip178, electrum=(not bare), testnet=card.is_testnet)
 
@@ -558,7 +572,7 @@ def setup_slot(cvc, chain_code, new_chain_code):
         # rare, not expected case since factory setup on slot zero
         fail("Chain code required for slot zero setup")
     
-    cvc = cleanup_cvc(cvc)
+    cvc = cleanup_cvc(card, cvc)
     ses_key, resp = card.send_auth('new', cvc, **args)
 
     if card.is_tapsigner:
@@ -595,7 +609,7 @@ def show_balance(cvc):
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
 def export_to_core(cvc, pretty):
-    "Show JSON needed to import private keys into Bitcoin Core"
+    "[SC] Show JSON needed to import private keys into Bitcoin Core"
 
     # see 
     # - <https://bitcoincore.org/en/doc/0.21.0/rpc/wallet/importmulti/>
@@ -603,12 +617,12 @@ def export_to_core(cvc, pretty):
     # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
 
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     # CVC is optional, but they probably want it
     if not cvc:
         click.echo("Warning: Without the code, can only watch addresses from this card.", err=1)
-    cvc = cleanup_cvc(cvc, missing_ok=True)
+    cvc = cleanup_cvc(card, cvc, missing_ok=True)
 
     shared = dict(timestamp=PROJECT_EPOC_TIME_T, descr=[], internal=False)
     if not cvc:
@@ -677,8 +691,8 @@ def get_xpub(master, cvc, show_path):
     # meant as a starting point? no auth
     # TODO: make more useful, and be default cmd?
 
-    cvc = cleanup_cvc(cvc)
     card = get_card(only_tapsigner=True)
+    cvc = cleanup_cvc(card, cvc)
 
     if show_path and not master:
         click.echo(card.get_derivation() + '\n')
@@ -696,7 +710,7 @@ def json_dump(cvc):
     # - change derivation before calling this if not what you want
 
     card = get_card(only_tapsigner=True)
-    cvc = cleanup_cvc(cvc)
+    cvc = cleanup_cvc(card, cvc)
 
     path = card.get_derivation()
     assert path.startswith('m')
@@ -734,8 +748,9 @@ def json_dump(cvc):
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
 def do_backup(cvc, outfile, wrap_shell):
     "[TS] Backup private key from card into AES-128-CTR encrypted file"
-    cvc = cleanup_cvc(cvc)
     card = get_card(only_tapsigner=True)
+    cvc = cleanup_cvc(card, cvc)
+
     import datetime
     from base64 import b64encode
 
@@ -761,5 +776,20 @@ echo "It's CBOR encoded data, visit https://cbor.io to decode."
 ''', file=fp)
 
         print(f"Wrote {fp.tell()} bytes to: {fp.name}")
+
+@main.command('change')
+@click.argument('cvc', type=str, metavar="(existing code)", required=False)
+@click.argument('new_cvc', type=str, metavar="(new code)", required=False)
+def change_cvc(cvc, new_cvc):
+    "[TS] Change the CVC code (PIN code)"
+    card = get_card(only_tapsigner=True)
+
+    cvc = cleanup_cvc(card, cvc, prompt='existing code')
+    new_cvc = cleanup_cvc(card, new_cvc, prompt='new code')
+
+    card.change_cvc(cvc, new_cvc)
+
+    click.echo("New code in effect now.")
+
 
 # EOF
