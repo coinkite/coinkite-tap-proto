@@ -2,7 +2,7 @@
 # Coinkite Tap protocol and python support library
 #
 
-# To use this command, during dev, install and yet be able to edit the code:
+# To use this command to install and yet be able to edit the code (here). Great for dev:
 #
 #   pip install --editable .
 #

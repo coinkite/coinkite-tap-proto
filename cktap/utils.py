@@ -60,6 +60,18 @@ def str2path(path):
 
     return rv
 
+def card_pubkey_to_ident(card_pubkey):
+    # convert pubkey into a hash formated for humans
+    # - sha256(compressed-pubkey)
+    # - skip first 8 bytes of that (because that's revealed in NFC URL)
+    # - base32 and take first 20 chars in 4 groups of five
+    # - insert dashes
+    # - result is 23 chars long
+    from base64 import b32encode
+    assert len(card_pubkey) == 33, 'expecting compressed pubkey'
+    md = b32encode(sha256s(card_pubkey)[8:]).decode('ascii')
+    return '-'.join(md[pos:pos+5] for pos in range(0, 20, 5))
+
 # predicates for numeric paths. stop giggling
 all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
 none_hardened = lambda path: not any(bool(i & HARDENED) for i in path)
@@ -264,47 +276,97 @@ def render_sats_value(c, u):
     else:
         return f'-zero- (+{u:,} soon)'
 
-def url_decoder(fragment, is_testnet=False):
+
+def all_keys(sig, md):
+    # generates all possible pubkeys from sig + digest
+    for rec_id in range(4):
+        # see BIP-137 for magic value "39"... perhaps not well supported tho
+        try:
+            yield CT_sig_to_pubkey(md, bytes([39 + rec_id]) + sig)
+        except ValueError:
+            if rec_id >= 2: continue        # because crypto I don't understand
+            raise
+
+def url_decoder(fragment):
     # Takes the URL (after the # part) and verifies it
-    # and returns dict of useful values, or raising on errors/frauds
+    # and returns dict of useful values, or raisese on errors/frauds
     from urllib.parse import parse_qsl
 
     assert '#' not in fragment
     assert '?' not in fragment
 
     msg = fragment[0:fragment.rfind('=')+1]
-    raw = dict(parse_qsl(fragment, strict_parsing=True))
+    try:
+        raw = dict(parse_qsl(fragment, strict_parsing=True))
+    except:
+        raise RuntimeError("Badly formated link")
 
-    state = dict(S='sealed', U='unsealed', E='error/tampered').get(raw['u'], 'unknown state')
-    nonce = bytes.fromhex(raw['n'])
-    assert len(nonce) == 8
-    slot_num = int(raw.get('o', -1))
-    addr = raw.get('r', None)
-    sig = bytes.fromhex(raw['s'])
-    assert len(sig) == 64
+    try:
+        nonce = bytes.fromhex(raw['n'])
+        is_tapsigner = bool(raw.get('t', False))
+        assert len(nonce) == 8
+        slot_num = int(raw.get('o', -1))
+        addr = raw.get('r', None)
+        sig = bytes.fromhex(raw['s'])
+        assert len(sig) == 64
+        card_ident = raw.get('c', None)
+    except KeyError as exc:
+        raise RuntimeError("Required field missing")
 
     md = sha256s(msg.encode('ascii'))
 
-    valid_sig = False
-    for rec_id in range(4):
-        # see BIP-137 for magic value "39"... perhaps not well supported tho
-        try:
-            pubkey = CT_sig_to_pubkey(md, bytes([39 + rec_id]) + sig)
-            valid_sig = True
-        except ValueError:
-            if rec_id >= 2: continue        # because crypto I don't understand
-            raise
+    if is_tapsigner:
+        assert card_ident, 'missing card ident value'
+        card_ident = bytes.fromhex(card_ident)
+        full_card_ident = None
 
-        if addr is not None:
-            got = render_address(pubkey, is_testnet)
-            if got.endswith(addr):
-                addr = got
+        for pubkey in all_keys(sig, md):
+            expect = sha256s(pubkey)
+            if expect[0:8] == card_ident:
+                full_card_ident = card_pubkey_to_ident(pubkey)
                 break
 
-    if not valid_sig:
-        raise RuntimeError("Invalid link: signature does not verify")
+        if not full_card_ident:
+            raise RuntimeError("Could not reconstruct card ident.")
 
-    return dict(state=state, addr=addr, nonce=nonce, slot_num=slot_num)
+        return dict(nonce=nonce.hex(),
+                    card_ident=full_card_ident,
+                    virgin=(raw['u'] == 'U'),
+                    is_tapsigner=True, tampered=(raw['u'] == 'E'))
+
+    else:
+        # SATSCARD
+        confirmed_addr = None
+        is_testnet = False
+        state = dict(S='Sealed', U='UNSEALED', E='Error/Tampered').get(raw['u'], 'Unknown state')
+
+        for pubkey in all_keys(sig, md):
+            if addr is not None:
+                got = render_address(pubkey, False)
+                if got.endswith(addr):
+                    confirmed_addr = got
+                    break
+
+                got = render_address(pubkey, True)
+                if got.endswith(addr):
+                    confirmed_addr = got
+                    is_testnet = True
+                    break
+
+        if addr and not confirmed_addr:
+            raise RuntimeError("Could not reconstruct full payment address.")
+
+        rv = dict(state=state, addr=confirmed_addr, nonce=nonce.hex(),
+                    is_tapsigner=False,
+                    slot_num=slot_num,
+                    sealed=(raw['u'] == 'S'),
+                    tampered=(raw['u'] == 'E'))
+
+        if is_testnet:
+            rv['testnet'] = True
+
+        return rv
+
 
 
 # EOF

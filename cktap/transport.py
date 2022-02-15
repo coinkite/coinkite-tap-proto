@@ -12,7 +12,7 @@ from .utils import *
 from .constants import *
 from .exceptions import CardRuntimeError
 from pprint import pformat
-from .compat import hash160
+from .compat import hash160, sha256s
 
 # single-shot SHA256
 sha256s = lambda msg: sha256(msg).digest()
@@ -76,7 +76,9 @@ class CKTapDeviceBase:
         assert 'error' not in st, 'Early failure: ' + repr(st)
         assert st['proto'] == 1, "Unknown card protocol version"
 
-        self.pubkey = st['pubkey']
+        self.card_pubkey = st['pubkey']
+        self.card_ident = card_pubkey_to_ident(self.card_pubkey)
+
         self.applet_version = st['ver']
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
@@ -86,12 +88,11 @@ class CKTapDeviceBase:
         assert self.card_nonce      # self.send() will have captured from first status req
         self._certs_checked = False
 
-        self.card_ident = sha256(st.get('pubkey')).digest().hex()
 
     def __repr__(self):
-        kk = b2a_hex(self.pubkey).decode('ascii')[-8:] if hasattr(self, 'pubkey') else '???'
+        kk = getattr(self, 'card_ident', '???')
         ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
-        return '<%s %s: card_pubkey=...%s> ' % (self.__class__.__name__, ty, kk)
+        return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
 
     def _send_recv(self, msg):
         # do CBOR encoding and round-trip the request + response
@@ -107,7 +108,7 @@ class CKTapDeviceBase:
         # - skip if CVC is none and just do normal stuff (optional auth on some cmds)
 
         if cvc:
-            session_key, auth_args = calc_xcvc(cmd, self.card_nonce, self.pubkey, cvc)
+            session_key, auth_args = calc_xcvc(cmd, self.card_nonce, self.card_pubkey, cvc)
             args.update(auth_args)
         else:
             session_key = None
@@ -194,11 +195,6 @@ class CKTapDeviceBase:
             #raise ValueError("Current slot is not yet setup.")
 
             return None
-
-        if self.pubkey.hex().endswith('a0b0d81a93117e442ae9ddce82c44d4268'):
-            # XXX debug card, before API change
-            if slot == 0:
-                return 'tb1q39xdpaq5utt9f6pn7zvw5qwf6hweukwqm4avgp'
 
         if slot != cur_slot:
             # Use the unauthenticated "dump" command.
@@ -296,6 +292,10 @@ class CKTapDeviceBase:
         self._certs_checked = True
 
         return rv
+
+    def get_status(self):
+        # read current status
+        return self.send('status')
 
     def unseal_slot(self, cvc):
         # Unseal the current slot (can only be one)

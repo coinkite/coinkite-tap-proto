@@ -43,7 +43,7 @@ def fail(msg):
 def get_card(only_satscard=False, only_tapsigner=False):
     # Pick a card to work with
     global global_opts
-    pk_filter = (global_opts.get('card_pubkey') or '').lower()
+    ci_filter = (global_opts.get('card_ident') or '').upper()
     wait_for_it = global_opts.get('wait', False)
 
     be_verbose = global_opts.get('verbose', False)
@@ -54,8 +54,8 @@ def get_card(only_satscard=False, only_tapsigner=False):
     first = True
     while 1:
         for c in find_cards():
-            if pk_filter:
-                if not B2A(c.pubkey).endswith(pk_filter):
+            if ci_filter:
+                if not (ci_filter in c.card_ident):
                     c.close()
                     continue
             if only_satscard and c.is_tapsigner: continue
@@ -63,7 +63,7 @@ def get_card(only_satscard=False, only_tapsigner=False):
             return c
 
         if not wait_for_it: 
-            subset = 'matching cards' if pk_filter else 'suitable cards'
+            subset = 'matching cards' if ci_filter else 'suitable cards'
             if only_tapsigner: subset = 'TAPSIGNER cards' 
             if only_satscard: subset = 'SATSCARD'
             fail(f"No {subset} found. Is it in place on reader?")
@@ -111,6 +111,12 @@ def cleanup_cvc(card, cvc, missing_ok=False, prompt="spending code"):
         if len(cvc) != CVC_LENGTH:
             fail(f"Need {CVC_LENGTH}-digit numeric code from back of card.")
 
+    if card.auth_delay:
+        with click.progressbar(label="Requires security delay", length=card.auth_delay) as bar:
+            for n in range(card.auth_delay):
+                card.send('wait')
+                bar.update(1)
+
     return cvc
     
 def display_errors(f):
@@ -151,8 +157,8 @@ class AliasedGroup(click.Group):
 # Options we want for all commands
 #
 @click.group(cls=AliasedGroup)
-@click.option('--card-pubkey', '-c', default=None, metavar="HEX",
-                    help="Operate on specific card (rightmost hex digits of public key)")
+@click.option('--card-ident', '-i', default=None, metavar="BLAHZ-BLAHX-",
+                    help="Operate on specific card (any substring is enough)")
 @click.option('--wait', '-w', is_flag=True, 
                     help="Waits until a card is in place.")
 @click.option('--verbose', '-v', is_flag=True, 
@@ -368,10 +374,10 @@ def get_nfc_url(open_browser):
 @click.option('--error-mode', '-e', default='L', metavar="L|M|H",
             help="Forward error correction level (L = low, H=High=bigger)")
 def get_deposit_qr(outfile, slot, error_mode):
-    "Show current deposit address as a QR"
+    "[SC] Show current deposit address as a QR (or private key if unsealed)"
     import pyqrcode
 
-    card = get_card()
+    card = get_card(only_satscard=True)
 
     addr = card.address(slot=slot)
     if not addr:
@@ -414,12 +420,6 @@ def check_cvc(cvc):
     card = get_card()
     cvc = cleanup_cvc(card, cvc)
 
-    if card.auth_delay:
-        with click.progressbar(label="Requires security delay", length=card.auth_delay) as bar:
-            for n in range(card.auth_delay):
-                card.send('unlock')
-                bar.update(1)
-
     # do a dump command
     if card.is_tapsigner:
         # XXX need a command w/o side effects for TS
@@ -456,13 +456,15 @@ def get_path():
 @click.argument('path', type=str, metavar="84h/0h/0h", required=True)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def set_derivation(path, cvc):
-    "[TS] Pick the subkey derivation path to use"
+    "[TS] Change the subkey derivation path to use"
     card = get_card(only_tapsigner=True)
 
     child_depth, cc, pub = card.set_derivation(path, cleanup_cvc(card, cvc))
 
-    print(cc.hex())
-    print(pub.hex())
+    #print(cc.hex())
+    #print(pub.hex())
+
+    print(card.get_xpub(cvc))
     
         
 @main.command('certs')
@@ -501,7 +503,7 @@ def dump_wif(cvc, slot, bip178, bare):
 
     # guess most useful slot to show
     if slot == -1:
-        st = card.send('status')
+        st = card.get_status()
         active = st['slots'][0]
         slot = active-1 if active >= 1 else 0
 
@@ -534,7 +536,7 @@ def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
                 help="Pick a fresh chain code randomly [TS=default].")
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 def setup_slot(cvc, chain_code, new_chain_code):
-    "Setup next slot with a fresh private key."
+    "Setup with a fresh private key."
 
     card = get_card()
 
@@ -560,7 +562,7 @@ def setup_slot(cvc, chain_code, new_chain_code):
         fail("Provide a chain code or make me pick one, not both")
 
     if new_chain_code:
-        args['chain_code'] = os.urandom(32)
+        args['chain_code'] = sha256s(sha256s(os.urandom(128)))
     elif chain_code:
         try:
             chain_code = b2a_hex(chain_code)
@@ -569,14 +571,14 @@ def setup_slot(cvc, chain_code, new_chain_code):
             fail("Need 64 hex digits (32 bytes) for chain code.")
         args['chain_code'] = chain_code
     elif target == 0:
-        # rare, not expected case since factory setup on slot zero
+        # not expected case since factory setup on slot zero
         fail("Chain code required for slot zero setup")
     
     cvc = cleanup_cvc(card, cvc)
     ses_key, resp = card.send_auth('new', cvc, **args)
 
     if card.is_tapsigner:
-        click.echo('TAPSIGNER ready')
+        click.echo('TAPSIGNER ready for use')
     else:
         # only one field: new slot number
         card.active_slot = resp['slot']
@@ -669,11 +671,12 @@ def card_status():
     # meant as a starting point? no auth
     # TODO: make more useful, and be default cmd?
     card = get_card()
-    st = card.send('status')
-    print("TAPSIGNER Card:" if st.get('tapsigner', False) else 'SATSCARD:')
+    st = card.get_status()
+    print("-- TAPSIGNER Card --" if st.get('tapsigner', False) else '-- SATSCARD --')
 
+    print(f'Card ident: {card.card_ident}')
+    print(f'Birth Height: {card.birth_height}')
     if card.is_tapsigner:
-        print(f'Card ident: ' + card.card_ident)
         print(f'Number of backups: {st["num_backups"]}')
         if 'path' in st:
             print(f'Current derivation: ' + path2str(st['path']))
@@ -791,5 +794,15 @@ def change_cvc(cvc, new_cvc):
 
     click.echo("New code in effect now.")
 
+
+@main.command('unlock')
+def do_unlock():
+    "Clear login delay (takes 15 seconds)"
+    card = get_card()
+    if card.auth_delay:
+        with click.progressbar(label="Security delay", length=card.auth_delay) as bar:
+            for n in range(card.auth_delay):
+                card.send('wait')
+                bar.update(1)
 
 # EOF

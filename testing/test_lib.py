@@ -41,12 +41,13 @@ def test_wrap():
 def test_addr(dev):
     # core functions
     dev.certificate_check()
-    addr = dev.address()
-    if addr:
-        # can be None if unused slot
-        assert addr[0:3] in { 'tb1', 'bt1' }
-    a2 = dev.address(faster=True)
-    assert a2 == addr
+    if not dev.is_tapsigner:
+        addr = dev.address()
+        if addr:
+            # can be None if unused slot
+            assert addr[0:3] in { 'tb1', 'bt1' }
+        a2 = dev.address(faster=True)
+        assert a2 == addr
 
 def test_status_fields(dev):
     st = dev.send('status')
@@ -72,23 +73,32 @@ def test_status_fields(dev):
     tn = st.pop('testnet', None)
     assert tn in { None, True }
 
-    slots = st.pop('slots')
-    active, total = slots
-    assert 0 <= active <= total
-    assert total == NUM_SLOTS
-
-    if 'addr' in st:
-        addr = st.pop('addr')
-        assert len(addr) == (ADDR_TRIM*2)+3
-        assert '___' in addr
+    if st.pop('tapsigner', False):
+        # TAPSIGNER
+        assert 'slots' not in st
+        if 'path' in st:
+            assert isinstance(st.pop('path'), list)
+        assert 0 <= st.pop('num_backups') <= 127
     else:
-        # current slot unused (not sealed)
-        pass
+        # SATSCARD
+        slots = st.pop('slots')
+        active, total = slots
+        assert 0 <= active <= total
+        assert total == NUM_SLOTS
+
+        if 'addr' in st:
+            addr = st.pop('addr')
+            assert len(addr) == (ADDR_TRIM*2)+3
+            assert '___' in addr
+        else:
+            # current slot unused (not sealed)
+            pass
 
     assert len(st) == 0, f'Extra fields: {st}'
     
 def test_dump_unauth(dev):
     # all slots can be dumped w/o CVC but limited info
+    if dev.is_tapsigner: raise pytest.skip("tapsigner")
 
     for slot in range(0, NUM_SLOTS):
         d = dev.send('dump', slot=slot)
@@ -112,9 +122,11 @@ def test_dump_unauth(dev):
 
 def test_dump_unsealed(dev, known_cvc):
     # dump details of all unsealed slots 
+    if dev.is_tapsigner: raise pytest.skip("tapsigner")
 
     st = dev.send('status')
     testnet = st.get('testnet', False)
+    if st.pop('tapsigner', False): raise pytest.skip("tapsigner")
     active, num_slots = st['slots']
     if active == 0:
         raise pytest.skip("no unsealed slots yet")
@@ -147,6 +159,7 @@ def test_dump_unsealed(dev, known_cvc):
         assert render_address(actual, st.get('testnet', False)) == derived_addr
 
 def test_get_privkey(dev, known_cvc):
+    if dev.is_tapsigner: raise pytest.skip("tapsigner")
     
     count = 0
     for slot in range(0, dev.active_slot):
@@ -162,11 +175,13 @@ def test_get_privkey(dev, known_cvc):
         raise pytest.xfail("no unsealed slots")
 
 def test_get_usage_1(dev, known_cvc):
+    if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot, known_cvc)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
 def test_get_usage_2(dev):
+    if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
@@ -178,19 +193,33 @@ def test_url_from_card(dev):
         assert frag not in history, 'dup nonce?!'
         history.add(frag)
 
-        r = url_decoder(frag, dev.is_testnet)
-        assert 'state' in r
+        r = url_decoder(frag)
+        assert ('state' in r) or ('virgin' in r)
+        assert 'nonce' in r
+        assert r.get('is_tapsigner') == dev.is_tapsigner
         if r.get('addr'):
             exp = dev.address(slot=r['slot_num'], faster=True)
             assert exp == r.get('addr')
+        if dev.is_tapsigner:
+            assert dev.card_ident == r.get('card_ident')
 
-def test_url_decoder():
+def test_url_decoder_sc():
     frag = 'u=U&o=1&r=mc0gk3l2&n=3efca6c545903a9a&s=a4020efe154842e6f97a363c08463c097da9edc6c5f2e909d4ec4a6605d99b8f3fa44fa9eed5768d562de2f21c85aab6c4b327519ab44c454eb80c6da14e34ec'
-    r = url_decoder(frag, True)
+    r = url_decoder(frag)
     assert r['addr'] == 'tb1qh36pafmmawe337kn5c2a2wzanfpww3mc0gk3l2'
-    assert r['nonce'] == b'>\xfc\xa6\xc5E\x90:\x9a'
-    assert r['state'] == 'unsealed'
+    assert r['nonce'] == '3efca6c545903a9a'
+    assert r['state'] == 'UNSEALED'
     assert r['slot_num'] == 1
+    assert r['is_tapsigner'] == False
+
+def test_url_decoder_ts():
+    frag = 't=1&u=U&c=2c6923818eed775b&n=419a154c57b6f5ab&s=6c9735bc0f9ff2450bb564e2f1bf635789ac303319492f849e0b1978655e1a307efa50205e9c152618d5f75ee36f58b499c09e4ae2237ce3dcb18a664fe6cf16'
+    r = url_decoder(frag)
+    assert r['card_ident'] == 'BU5HI-HTBCS-KLLZX-552ZO'
+    assert r['is_tapsigner'] == True
+    assert r['nonce'] == '419a154c57b6f5ab'
+    assert r['virgin'] == True
+    assert r['tampered'] == False
 
 def test_nonce_quality():
     from cktap.utils import pick_nonce
@@ -199,9 +228,5 @@ def test_nonce_quality():
         n = pick_nonce()
         assert len(n) == USER_NONCE_SIZE
         assert len(set(n)) >= 2
-
-if __name__ == '__main__':
-    test_wrap()
-    test_connection()
 
 # EOF

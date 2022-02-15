@@ -47,7 +47,7 @@ pip install --editable '.[cli]'
     - "Identiv uTrust 3700F" is reliable and looks nice
     - HID Omnikey 5022 CL (not 5021) is fast, cute and small.
     - "ACS ACR122U" can work, and is widely available, but is not recommended!
-    - but most smartcard USB CCID class-compliant devices should work.
+    - in theory, all smartcard USB CCID class-compliant devices should work.
 - see `requirements.txt` file for more details.
 
 ## Windows Notes
@@ -58,6 +58,19 @@ pip install --editable '.[cli]'
     - add that to system PATH
     - test: `swig` at command prompt should work
     - then `pip install pyscard` worked
+
+## FreeBSD Notes
+
+- tested against 13.0-RELEASE
+- need `pkg install py38-pyscard py38-coincurve` 
+    - follow devfs.conf instructions
+    - install usr/ports/devel/libccid
+    - add `pcscd_enable="YES"` to rc.conf
+- `pip install base58`
+- `pip install -e git+https://github.com/coinkite/python-bip32.git@iss27#egg=bip32`
+- make your virtualenv with: `virtualenv ENV --system-site-packages`
+- need `pkg install py38-secp256k1` (which pulls a tragic set of dependancies)
+- MAYBE: 'swig' is needed to build wheel for `pyscard`, so `pkg install swig`?
 
 # Using the Library
 

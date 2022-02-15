@@ -64,7 +64,6 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
 
 try:
     # Wally Core <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
-    raise ImportError
     import wallycore
 
     from .wrap_wally import hash160, sha256s
