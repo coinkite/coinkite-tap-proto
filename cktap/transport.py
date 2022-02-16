@@ -67,6 +67,7 @@ class CKTapTransportABC:
     #
     # Abstract base class. Low level details about talking our protocol.
     #
+    is_emulator = False
 
     def _send_recv(self, msg):
         # take CBOR encoded request, and round-trip the request + response
@@ -113,6 +114,7 @@ class CKTapNFCTransport(CKTapTransportABC):
     #
     # For talking to a real card over USB to a reader.
     #
+    name = 'NFC'
 
     def __init__(self, card_conn):
         # Check connection they gave us
@@ -152,6 +154,8 @@ class CKTapUnixTransport(CKTapTransportABC):
     #
     # Emulation running over a Unix socket.
     #
+    is_emulator = True
+    name = 'EMU'
 
     @classmethod
     def find_simulator(cls):
@@ -165,8 +169,6 @@ class CKTapUnixTransport(CKTapTransportABC):
         import socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(pipename)
-        self.first_look()
-        self._certs_checked = True      # because it won't pass
 
     def get_ATR(self):
         return CARD_ATR

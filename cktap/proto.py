@@ -27,7 +27,7 @@ class CKTapCard:
     def __repr__(self):
         kk = getattr(self, 'card_ident', '???')
         ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
-        return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
+        return '<%s %s via %s: %s> ' % (self.__class__.__name__, ty, self.tr.name, kk)
 
     def close(self):
         # optional? cleanup connection
@@ -79,7 +79,10 @@ class CKTapCard:
         self.is_tapsigner =  st.get('tapsigner', False)
         self.active_slot, self.num_slots = st.get('slots', (0,1))
         assert self.card_nonce      # self.send() will have captured from first status req
-        self._certs_checked = False
+
+        # certs will not verify on emulator, and expensive to do more than once in
+        # normal cases too
+        self._certs_checked = bool(self.tr.is_emulator)
 
     def send_auth(self, cmd, cvc, **args):
         # Take CVC and do ECDH crypto and provide the CVC in encrypted form

@@ -3,6 +3,8 @@
 #
 # Tests. Best w/ a card with at least one unsealed slot. Does not modify state of card.
 #
+# NOTE: these are just cktap tests; we have much more complex test suite for the card.
+#
 import pytest
 from cktap.constants import *
 from cktap.compat import *
@@ -40,7 +42,9 @@ def test_wrap():
     
 def test_addr(dev):
     # core functions
-    dev.certificate_check()
+    if not dev.tr.is_emulator:
+        dev.certificate_check()
+
     if not dev.is_tapsigner:
         addr = dev.address()
         if addr:
@@ -114,7 +118,8 @@ def test_dump_unauth(dev):
             addr = d.pop('addr')
             assert '___' not in addr
         elif s == True:
-            assert 'addr' not in d
+            addr = d.pop('addr')
+            assert '___' in addr
         else:
             raise ValueError(s)
 

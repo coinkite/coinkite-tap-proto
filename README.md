@@ -76,6 +76,15 @@ pip install --editable '.[cli]'
 - need `pkg install py38-secp256k1` (which pulls a tragic set of dependencies)
 - MAYBE: 'swig' is needed to build wheel for `pyscard`, so `pkg install swig`?
 
+## Emulator
+
+There is python code for an emulator which communicates with `cktap`
+via a local Unix socket. It's provided without warrantee and isn't
+installed by default. `cktap` will prefer to speak to the emulator
+if it is running.
+
+See [README for emulator](emulator/README.md).
+
 # Using the Library
 
 ```python
