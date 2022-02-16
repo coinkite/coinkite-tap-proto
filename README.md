@@ -8,11 +8,13 @@ This repo includes:
 2. Python library for speaking the protocol
 3. (someday) Examples/libraries in other languages
 
-# Protocol Specification
+# Full Documentation
 
-[Protocol spec is here.](docs/protocol.md)
+[Protocol spec](docs/protocol.md) is now public!
 
 Related documentation can be found in [docs subdir](docs).
+
+[Coinkite-tap-proto source code](https://github.com/coinkite/coinkite-tap-proto)
 
 # Install
 
