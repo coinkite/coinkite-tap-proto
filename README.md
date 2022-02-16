@@ -45,7 +45,7 @@ pip install --editable '.[cli]'
 ## Requirements
 
 - python 3.6 or higher
-- `pyscard` for acceess to smartcard readers
+- `pyscard` for access to smartcard readers
 - a supported smart-card reader:
     - "ACS ACR1252U" is okay and widely available.
     - "Identiv uTrust 3700F" is reliable and looks nice
@@ -73,7 +73,7 @@ pip install --editable '.[cli]'
 - `pip install base58`
 - `pip install -e git+https://github.com/coinkite/python-bip32.git@iss27#egg=bip32`
 - make your virtualenv with: `virtualenv ENV --system-site-packages`
-- need `pkg install py38-secp256k1` (which pulls a tragic set of dependancies)
+- need `pkg install py38-secp256k1` (which pulls a tragic set of dependencies)
 - MAYBE: 'swig' is needed to build wheel for `pyscard`, so `pkg install swig`?
 
 # Using the Library
@@ -93,9 +93,9 @@ pip install --editable '.[cli]'
 
 Any command which reveals private key info or changes the state of
 the card will require the 6-digit numeric code from the back of the
-code (called CVC or "spend code", or "Starting PIN Code" on TAPSIGNER).
+card (called CVC or "spend code", or "Starting PIN Code" on TAPSIGNER).
 You can provide this on the command line, or omit it. When required,
-you will be prompted for the CVC if it wasn't on the commnad line.
+you will be prompted for the CVC if it wasn't on the command line.
 Some commands will display what information they can without the
 CVC. In those cases, to see more detail, add the CVC on the command line.
 
@@ -105,13 +105,13 @@ CVC. In those cases, to see more detail, add the CVC on the command line.
 
 `cktap open` 
 - opens Bitcoin Core or your other wallet, by activating the BITCOIN:addr 
-URL scheme for the curent slot of the card.
+URL scheme for the current slot of the card.
 
 `cktap qr` 
 - displays QR code for deposit
 
 `cktap unseal`
-- unseals the current slot and shows the WIF for funds sweaping
+- unseals the current slot and shows the WIF for funds sweeping
 - you will require a blockchain-aware wallet to import that WIF into
 
 `cktap balance`
@@ -147,7 +147,7 @@ Usage: cktap [OPTIONS] COMMAND [ARGS]...
 
   Interact with SATSCARD and TAPSIGNER cards via NFC tap.
 
-  Command makred [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
+  Command marked [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
 
   You can use "bal", or "b" for "balance": any distinct prefix for all
   commands.
@@ -161,7 +161,7 @@ Options:
 
 
 Commands:
-  addresss  [SC] Show current deposit address
+  address   [SC] Show current deposit address
   backup    [TS] Backup private key from card into AES-128-CTR encrypted...
   balance   [SC] Show the balance held on all slots
   certs     Check this card was made by Coinkite: Verifies a certificate...
