@@ -25,6 +25,7 @@ def pick_nonce():
     raise RuntimeError("stuck RNG?")
 
 # Serialization/deserialization tools
+# - need this for text msg signing
 def ser_compact_size(l):
     if l < 253:
         return struct.pack("B", l)
@@ -34,6 +35,7 @@ def ser_compact_size(l):
         return struct.pack("<BI", 254, l)
     else:
         return struct.pack("<BQ", 255, l)
+
 
 # high bit set in LE32 indicating hardened BIP-32 path component
 HARDENED = 0x8000_0000
@@ -60,6 +62,11 @@ def str2path(path):
 
     return rv
 
+# predicates for numeric paths. stop giggling
+all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
+none_hardened = lambda path: not any(bool(i & HARDENED) for i in path)
+
+
 def card_pubkey_to_ident(card_pubkey):
     # convert pubkey into a hash formated for humans
     # - sha256(compressed-pubkey)
@@ -69,13 +76,10 @@ def card_pubkey_to_ident(card_pubkey):
     # - result is 23 chars long
     from base64 import b32encode
     assert len(card_pubkey) == 33, 'expecting compressed pubkey'
+
     md = b32encode(sha256s(card_pubkey)[8:]).decode('ascii')
+
     return '-'.join(md[pos:pos+5] for pos in range(0, 20, 5))
-
-# predicates for numeric paths. stop giggling
-all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
-none_hardened = lambda path: not any(bool(i & HARDENED) for i in path)
-
 
 def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     # Verify the certificate chain works, returns label for pubkey recovered from signatures.

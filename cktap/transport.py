@@ -31,9 +31,9 @@ def find_cards():
     from smartcard.Exceptions import CardConnectionException, NoCardException
 
     # emulation running on a Unix socket
-    sim = CKEmulatedCard.find_simulator()
+    sim = CKTapUnixTransport.find_simulator()
     if sim:
-        yield sim
+        yield CKTapCard(sim)
 
     readers = get_readers()
     if not readers:
@@ -54,20 +54,100 @@ def find_cards():
             continue
 
         if atr == CARD_ATR:
-            yield CKTapCard(conn)
+            tr = CKTapNFCTransport(conn)
+            yield CKTapCard(tr)
         else:
             print(f"Got ATR: {atr}")
 
-''' refactor TODO
-- CKTapDeviceBase => TransportBase
-- new file, "controller" whihc does highlevel
-- etc
-'''
+class CKTapTransportABC:
+    #
+    # Abstract base class. Low level details about talking our protocol.
+    #
 
-class CKTapDeviceBase:
-    #
-    # Abstract base class
-    #
+    def _send_recv(self, msg):
+        # take CBOR encoded request, and round-trip the request + response
+        raise NotImplementedError
+
+    def get_ATR(self):
+        # ATR = Answer To Reset
+        raise NotImplementedError
+
+    def close(self):
+        # release resources
+        pass
+
+    def send(self, cmd, **args):
+        # Serialize command, send it as ADPU, get response and decode
+
+        args = dict(args)
+        args['cmd'] = cmd
+        msg = cbor2.dumps(args)
+
+        if VERBOSE:
+            print(f">> {cmd} (%s)" % ', '.join(k+'='+(str(v) if len(str(v)) < 9 else '...')
+                                            for k,v in args.items() if k != 'cmd'))
+
+        # Send and wait for reply
+        stat_word, resp = self._send_recv(msg)
+
+        try:
+            resp = cbor2.loads(resp) if resp else {}
+        except:
+            #print("Bad CBOR rx'd from card:\n{B2A(resp)}")
+            raise RuntimeError('Bad CBOR from card')
+            
+        if VERBOSE:
+            print("<< ", end='')
+            if 'error' not in resp:
+                print(', '.join(resp.keys()))
+            else:
+                print(pformat(resp))
+
+        return stat_word, resp
+
+class CKTapCard:
+    def __init__(self, transport):
+        self.tr = transport
+        self.first_look()
+
+    def __repr__(self):
+        kk = getattr(self, 'card_ident', '???')
+        ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
+        return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
+
+    @classmethod
+    def find_first(cls):
+        # operate on the first card we can find
+        for c in find_cards():
+            if isinstance(c, cls):
+                return c
+        return None
+
+    def send(self, cmd, raise_on_error=True, **args):
+        # Send a command, get response, but also catch some card state
+        # changes and mirror them in our state.
+        stat_word, resp =  self.tr.send(cmd, **args)
+
+        if stat_word != SW_OKAY:
+            # Assume error if ANY bad SW value seen; promote for debug purposes
+            if 'error' not in resp:
+                resp['error'] = "Got error SW value: 0x%04x" % stat_word
+            resp['stat_word'] = stat_word
+
+
+        if 'card_nonce' in resp:
+            # many responses provide an updated card_nonce needed for
+            # the *next* comand. Track it.
+            # - only changes when "consumed" by commands that need CVC
+            self.card_nonce = resp['card_nonce']
+
+        if raise_on_error and 'error' in resp:
+            msg = resp.pop('error')
+            code = resp.pop('code', 500)
+            raise CardRuntimeError(f'{code} on {cmd}: {msg}', code, msg)
+
+        return resp
+
     def first_look(self):
         # Call this at end of __init__ to load up details from card
         # - can be called multiple times
@@ -87,20 +167,6 @@ class CKTapDeviceBase:
         self.active_slot, self.num_slots = st.get('slots', (0,1))
         assert self.card_nonce      # self.send() will have captured from first status req
         self._certs_checked = False
-
-
-    def __repr__(self):
-        kk = getattr(self, 'card_ident', '???')
-        ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
-        return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
-
-    def _send_recv(self, msg):
-        # do CBOR encoding and round-trip the request + response
-        raise NotImplementedError
-
-    def get_ATR(self):
-        # ATR = Answer To Reset
-        raise NotImplementedError
 
     def send_auth(self, cmd, cvc, **args):
         # clean up CVC, do crypto and provide the CVC in encrypted form
@@ -122,56 +188,6 @@ class CKTapDeviceBase:
 
         return session_key, self.send(cmd, **args)
 
-    def close(self):
-        # release resources
-        pass
-
-    def send(self, cmd, raise_on_error=True, **args):
-        # Serialize command, send it as ADPU, get response and decode
-
-        args = dict(args)
-        args['cmd'] = cmd
-        msg = cbor2.dumps(args)
-
-        if VERBOSE:
-            print(f">> {cmd} (%s)" % ', '.join(k+'='+(str(v) if len(str(v)) < 9 else '...')
-                                            for k,v in args.items() if k != 'cmd'))
-
-        # Send and wait for reply
-        stat_word, resp = self._send_recv(msg)
-
-        try:
-            resp = cbor2.loads(resp) if resp else {}
-        except:
-            #print("Bad CBOR rx'd from card:\n{B2A(resp)}")
-            raise RuntimeError('Bad CBOR from card')
-
-        if stat_word != SW_OKAY:
-            # Assume error if ANY bad SW value seen; promote for debug purposes
-            if 'error' not in resp:
-                resp['error'] = "Got error SW value: 0x%04x" % stat_word
-            resp['stat_word'] = stat_word
-
-            
-        if VERBOSE:
-            print("<< ", end='')
-            if 'error' not in resp:
-                print(', '.join(resp.keys()))
-            else:
-                print(pformat(resp))
-
-        if 'card_nonce' in resp:
-            # many responses provide an updated card_nonce needed for
-            # the *next* comand. Track it.
-            # - only changes when "consumed" by commands that need CVC
-            self.card_nonce = resp['card_nonce']
-
-        if raise_on_error and 'error' in resp:
-            msg = resp.pop('error')
-            code = resp.pop('code', 500)
-            raise CardRuntimeError(f'{code} on {cmd}: {msg}', code, msg)
-
-        return resp
 
     #
     # Wrappers and Helpers
@@ -369,20 +385,12 @@ class CKTapDeviceBase:
 
 
     # TODO
-    # - get chain_code (derive cmd w/ nonce) and/or get "xpub"
     # - 'sign' command which does the retries needed
 
-class CKTapCard(CKTapDeviceBase):
+class CKTapNFCTransport(CKTapTransportABC):
     #
     # For talking to a real card over USB to a reader.
     #
-    @classmethod
-    def find_first(cls):
-        # operate on the first card we can find
-        for c in find_cards():
-            if isinstance(c, cls):
-                return c
-        return None
 
     def __init__(self, card_conn):
         # Check connection they gave us
@@ -397,8 +405,6 @@ class CKTapCard(CKTapDeviceBase):
         # - probably optional
         sw, resp = self._apdu(0x00, 0xa4, APP_ID, p1=4)
         assert sw == SW_OKAY, "ISO app select failed"
-
-        self.first_look()
 
     def close(self):
         # release resources
@@ -420,7 +426,7 @@ class CKTapCard(CKTapDeviceBase):
         assert len(msg) <= 255, "msg too long"
         return self._apdu(CBOR_CLA, CBOR_INS, msg)
 
-class CKEmulatedCard(CKTapDeviceBase):
+class CKTapUnixTransport(CKTapTransportABC):
     #
     # Emulation running over a Unix socket.
     #
@@ -433,15 +439,15 @@ class CKEmulatedCard(CKTapDeviceBase):
             return cls(FN)
         return None
 
-    def get_ATR(self):
-        return CARD_ATR
-
     def __init__(self, pipename):
         import socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(pipename)
         self.first_look()
         self._certs_checked = True      # because it won't pass
+
+    def get_ATR(self):
+        return CARD_ATR
 
     def _send_recv(self, msg):
         # send and receive response back
