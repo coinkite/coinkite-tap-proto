@@ -9,6 +9,7 @@ NUM_SLOTS = 10
 
 # the "CVC" is the spending code on back of card.
 # - see also many text messages to user about this
+# - for TAPSIGNER, this is a minimum length (max 32)
 CVC_LENGTH = 6
 
 # no need to scan the blockchain before this point in time, since product didn't exist yet
@@ -38,5 +39,8 @@ APP_ID = bytes.fromhex('f0436f696e6b697465434152447631')
 # APDU CLA and INS fields for our one APDU, which uses CBOR data
 CBOR_CLA = 0x00
 CBOR_INS = 0xCB
+
+# Correct ADPU response from all commands: 90 00 
+SW_OKAY = 0x9000
 
 # EOF
