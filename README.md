@@ -6,11 +6,11 @@ This repo includes:
 
 1. The protocol specification
 2. Python library for speaking the protocol
-3. (maybe) Examples/libraries in other languages
+3. (someday) Examples/libraries in other languages
 
-# Protocol Spec
+# Protocol Specification
 
-See files in <./docs>.
+See files in [docs](docs).
 
 # Install
 
@@ -75,9 +75,12 @@ pip install --editable '.[cli]'
 # Using the Library
 
 ```python
-from cktap import find_first
-card = find_first()
-print(card)
+>>> from cktap import find_first
+>>> card = find_first()
+>>> print(card)
+<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL> 
+>>> card.address()
+'bc1q7h0u5yn8y4pajn94ze4gnhz487c8ysvekusqj5'
 ```
 
 # Using the CLI
@@ -88,9 +91,9 @@ Any command which reveals private key info or changes the state of
 the card will require the 6-digit numeric code from the back of the
 code (called CVC or "spend code", or "Starting PIN Code" on TAPSIGNER).
 You can provide this on the command line, or omit it. When required,
-you will be prompted for the CVC. Some commands will display what
-information they can without the CVC, then to see more, add the
-code on the command line.
+you will be prompted for the CVC if it wasn't on the commnad line.
+Some commands will display what information they can without the
+CVC. In those cases, to see more detail, add the CVC on the command line.
 
 ## Most Useful Commands
 
@@ -116,13 +119,13 @@ URL scheme for the curent slot of the card.
 `cktap status`
 - show info about state
 
-`cktap setup PINCODE`
+`cktap setup`
 - causes card to pick private key (call once)
 
-`cktap xpub PINCODE`
+`cktap xpub`
 - show the XPUB in effect
 
-`cktap backup PINCODE`
+`cktap backup`
 - save card's XPRV into AES-128-CTR encrypted file with today's date
 
 `cktap change OLDPINCODE NEWPINCODE`
@@ -132,7 +135,7 @@ URL scheme for the curent slot of the card.
 - show the derivation path in effect, by default: `m/84h/0h/0h`
 
 
-## Examples
+## Detailed Examples
 
 ```
 % cktap 
