@@ -17,6 +17,9 @@ class CKTapCard:
     #
     # Protocol/wrapper for cards. Call methods on this instance to get work done.
     #
+    # MAYBE: split into TAPSIGNER vs. SATSCARD subclasses and then some methods
+    # which aren't appropriate would not exist in the instance. Seems pointless.
+    #
     def __init__(self, transport):
         self.tr = transport
         self.first_look()
@@ -26,9 +29,16 @@ class CKTapCard:
         ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
         return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
 
+    def close(self):
+        # optional? cleanup connection
+        self.tr.close()
+        del self.tr
+
     def send(self, cmd, raise_on_error=True, **args):
         # Send a command, get response, but also catch some card state
         # changes and mirror them in our state.
+        # - command is a short string, such as "status"
+        # - see the protocol spec for arguments here
         stat_word, resp =  self.tr.send(cmd, **args)
 
         if stat_word != SW_OKAY:
@@ -72,9 +82,10 @@ class CKTapCard:
         self._certs_checked = False
 
     def send_auth(self, cmd, cvc, **args):
-        # clean up CVC, do crypto and provide the CVC in encrypted form
-        # - returns session key and usual results
-        # - skip if CVC is none and just do normal stuff (optional auth on some cmds)
+        # Take CVC and do ECDH crypto and provide the CVC in encrypted form
+        # - returns session key and usual auth arguments needed
+        # - skip if CVC is None and just do normal stuff (optional auth on some cmds)
+        # - for commands w/ encrypted arguments, you must provide to this function
 
         if cvc:
             session_key, auth_args = calc_xcvc(cmd, self.card_nonce, self.card_pubkey, cvc)
@@ -259,10 +270,6 @@ class CKTapCard:
 
         return xor_bytes(ses_key, resp['privkey'])
 
-
-    # TODO
-    # - 'sign' command which does the retries needed
-
     def get_slot_usage(self, slot, cvc=None):
         # Get address and status for a slot, CVC is optional
         # returns:
@@ -289,5 +296,8 @@ class CKTapCard:
         addr = addr or here.get('addr')
 
         return (addr, status, here)
+
+    # TODO
+    # - 'sign_digest' command which does the retries needed
 
 # EOF

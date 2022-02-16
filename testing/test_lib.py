@@ -7,7 +7,7 @@ import pytest
 from cktap.constants import *
 from cktap.compat import *
 from cktap.utils import xor_bytes, verify_derive_address, render_address
-from cktap.utils import url_decoder
+from cktap.verify_link import url_decoder
 
 def test_wrap():
     # crypto lib wrappers need to function
@@ -45,7 +45,7 @@ def test_addr(dev):
         addr = dev.address()
         if addr:
             # can be None if unused slot
-            assert addr[0:3] in { 'tb1', 'bt1' }
+            assert addr[0:3] in { 'tb1', 'bc1' }
         a2 = dev.address(faster=True)
         assert a2 == addr
 

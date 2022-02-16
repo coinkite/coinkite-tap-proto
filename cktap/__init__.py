@@ -7,9 +7,9 @@ __version__ = '0.0.1'
 __all__ = [ 'proto', 'exceptions', 'transport', 'constants', 'utils', 'sweep' ]
 
 
-# (generator) yields all attached cards found
+# find connected cards
 from .transport import find_cards, find_first
 
-# base class for working with cards
+# base class for working with cards, wants a transport
 from .proto import CKTapCard
 

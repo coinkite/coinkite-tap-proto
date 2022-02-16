@@ -107,6 +107,10 @@ URL scheme for the curent slot of the card.
 - unseals the current slot and shows the WIF for funds sweaping
 - you will require a blockchain-aware wallet to import that WIF into
 
+`cktap balance`
+- calls a webservice to get UTXO and show current Bitcoin balance
+- if you have `tord` already running locally, it will be used to proxy the request
+
 ### TAPSIGNER
 
 `cktap status`
@@ -142,12 +146,12 @@ Usage: cktap [OPTIONS] COMMAND [ARGS]...
   commands.
 
 Options:
-  -i, --card-ident BLAHZ-BLAHX-  Operate on specific card (any substring is
-                                 enough)
-  -w, --wait                     Waits until a card is in place.
-  -v, --verbose                  Show traffic with card.
-  --pdb                          Prepare patient for surgery to remove bugs.
-  --help                         Show this message and exit.
+  -i, --card-ident BLAHZ-  Operate on specific card (any substring is enough)
+  -w, --wait               Waits until a card is in place.
+  -v, --verbose            Show traffic with card.
+  --pdb                    Prepare patient for surgery to remove bugs.
+  --help                   Show this message and exit.
+
 
 Commands:
   addresss  [SC] Show current deposit address
@@ -176,8 +180,27 @@ Commands:
   version   Get the version of the card's firmware installed (but not...
   wif       [SC] Show WIF for last unsealed slot, or give slot number
   xpub      [TS] Show the xpub in use
+
+% cktap list
+<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL> 
+<CKTapCard TAPSIGNER: RUIXK-5XI6U-G55IQ-DVGVI> 
+
+% cktap -i RUIXK status
+-- TAPSIGNER Card --
+Card ident: RUIXK-5XI6U-G55IQ-DVGVI
+Birth Height: 723471
+Number of backups: 25
+Current derivation: m/84h/0h/0h
+
+% cktap -i 26NKY status
+-- SATSCARD --
+Card ident: 26NKY-RWPK4-65YR7-BU4WL
+Birth Height: 723597
+Address: bc1q7h0u5yn8y4pajn94ze4gnhz487c8ysvekusqj5
+
 ```
 
+### SATSCARD
 ```
 % cktap usage
 SLOT# |  STATUS  | ADDRESS
@@ -217,5 +240,30 @@ bc1qu4vsv2jqgl0y30ehrs4d0dg23xazpgnxdwuqum
 Enter spending code (6 digits): 
 p2wpkh:L16cgmhZJWD7fq3eDi3gL7Yko6WYixxZi4f5T3XxxDCF2HnZdHJa
 
+
+```
+
+### TAPSIGNER
+
+```
+% cktap status
+-- TAPSIGNER Card --
+Card ident: RUIXK-5XI6U-G55IQ-DVGVI
+Birth Height: 723471
+Number of backups: 25
+Current derivation: m/84h/0h/0h
+
+% cktap backup 347634
+Wrote 109 bytes to: backup-RUIXK-2022-02-16T0926.aes
+
+% hd backup-RUIXK-2022-02-16T0926.aes
+00000000  d6 3e 40 59 f0 fd 7a 3d  06 67 a5 94 0b 5d 01 09  |.>@Y..z=.g...]..|
+00000010  27 58 c3 2a 1f c1 66 d9  84 84 25 96 af 71 23 a1  |'X.*..f...%..q#.|
+00000020  0b bc aa ba c1 a3 98 6d  f2 cd 9c 24 51 8c f7 bf  |.......m...$Q...|
+00000030  09 ad 53 0d 9b 07 2b 8e  12 be 73 24 3a 09 a9 3d  |..S...+...s$:..=|
+00000040  26 6c 98 59 34 95 aa 78  a1 0b 7a 2b 77 98 1f 7a  |&l.Y4..x..z+w..z|
+00000050  d1 cf d6 e6 fd 31 b3 88  1a d9 df 68 03 a3 8b 06  |.....1.....h....|
+00000060  db 66 ef d6 ea 5f 5f 08  9a ed f2 2a 71           |.f...__....*q|
+0000006d
 
 ```

@@ -162,7 +162,7 @@ class AliasedGroup(click.Group):
 # Options we want for all commands
 #
 @click.group(cls=AliasedGroup)
-@click.option('--card-ident', '-i', default=None, metavar="BLAHZ-BLAHX-",
+@click.option('--card-ident', '-i', default=None, metavar="BLAHZ-",
                     help="Operate on specific card (any substring is enough)")
 @click.option('--wait', '-w', is_flag=True, 
                     help="Waits until a card is in place.")
