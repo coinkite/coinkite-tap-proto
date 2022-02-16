@@ -332,7 +332,7 @@ def get_usage(cvc):
         
         print('%3d   | %-8s | %s' % (slot, status, addr or ''))
 
-@main.command('addresss')
+@main.command('address')
 def get_addr():
     "[SC] Show current deposit address"
     card = get_card(only_satscard=True)
