@@ -87,12 +87,17 @@ def dump_dict(d):
 
         click.echo('%s: %s' % (k, v))
 
-def cleanup_cvc(card, cvc, missing_ok=False, prompt="spending code"):
+def cleanup_cvc(card, cvc, missing_ok=False, prompt="spending code", confirm=False):
     # Cleanup CVC provided (digits only) and prompt if needed, fail if wrong length
     if not cvc:
         if missing_ok:
             return None
         cvc = getpass(f"Enter {prompt}: ")
+
+        if confirm:
+            chk = getpass(f"Repeat {prompt}: ")
+            if chk != cvc:
+                fail("Does not match first try!? Stop.")
 
     if not card.is_tapsigner:
         # remove non-digits
@@ -404,6 +409,7 @@ def get_deposit_qr(outfile, slot, error_mode):
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def dump_slot(slot, cvc):
     "[SC] Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
+    # XXX too low-level/hexy
     card = get_card(only_satscard=True)
 
     session_key, resp = card.send_auth('dump', cleanup_cvc(card, cvc, missing_ok=True), slot=slot)
@@ -423,7 +429,7 @@ def check_cvc(cvc):
     # do a dump command
     if card.is_tapsigner:
         # XXX need a command w/o side effects for TS
-        cmd = 'read'
+        cmd = 'wait'
         args = dict()
     else:
         cmd = 'dump'
@@ -759,7 +765,8 @@ def do_backup(cvc, outfile, wrap_shell):
 
     if not outfile:
         nowish = datetime.datetime.now().isoformat()[0:16].replace(':', '')
-        outfile = f'backup-{card.card_ident[0:8]}-{nowish}.' + ('sh' if wrap_shell else 'aes')
+        ident = card.card_ident.split('-')[0]
+        outfile = f'backup-{ident}-{nowish}.' + ('sh' if wrap_shell else 'aes')
 
     enc = card.make_backup(cvc)
 
@@ -788,7 +795,7 @@ def change_cvc(cvc, new_cvc):
     card = get_card(only_tapsigner=True)
 
     cvc = cleanup_cvc(card, cvc, prompt='existing code')
-    new_cvc = cleanup_cvc(card, new_cvc, prompt='new code')
+    new_cvc = cleanup_cvc(card, new_cvc, prompt='new code', confirm=True)
 
     card.change_cvc(cvc, new_cvc)
 

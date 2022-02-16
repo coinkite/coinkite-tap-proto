@@ -43,10 +43,10 @@ pip install --editable '.[cli]'
 - python 3.6 or higher
 - `pyscard` for acceess to smartcard readers
 - a supported smart-card reader:
-    - "ACS ACR1252U" is better and also available.
+    - "ACS ACR1252U" is okay and widely available.
     - "Identiv uTrust 3700F" is reliable and looks nice
     - HID Omnikey 5022 CL (not 5021) is fast, cute and small.
-    - "ACS ACR122U" can work, and is widely available, but is not recommended!
+    - "ACS ACR122U" can work, and is widely available, but is not reliable nor recommended!
     - in theory, all smartcard USB CCID class-compliant devices should work.
 - see `requirements.txt` file for more details.
 
@@ -75,24 +75,26 @@ pip install --editable '.[cli]'
 # Using the Library
 
 ```python
-from cktap.transport import CKTapCard
-card = CKTapCard.find_first()
-print(card.address())
+from cktap import find_first
+card = find_first()
+print(card)
 ```
 
 # Using the CLI
 
 ## Providing CVC
 
-Any command which reveals private key info or changes the
-state of the card will require the 6-digit numeric code
-from the back of the code (called CVC or "spend code"). You can
-provide this on the command line, or omit it. If required, you
-will be prompted for the CVC. Some commands will display
-what information they can without the CVC. To see more, add the code
-on the command line
+Any command which reveals private key info or changes the state of
+the card will require the 6-digit numeric code from the back of the
+code (called CVC or "spend code", or "Starting PIN Code" on TAPSIGNER).
+You can provide this on the command line, or omit it. When required,
+you will be prompted for the CVC. Some commands will display what
+information they can without the CVC, then to see more, add the
+code on the command line.
 
 ## Most Useful Commands
+
+### SATSCARD
 
 `cktap open` 
 - opens Bitcoin Core or your other wallet, by activating the BITCOIN:addr 
@@ -105,32 +107,75 @@ URL scheme for the curent slot of the card.
 - unseals the current slot and shows the WIF for funds sweaping
 - you will require a blockchain-aware wallet to import that WIF into
 
+### TAPSIGNER
+
+`cktap status`
+- show info about state
+
+`cktap setup PINCODE`
+- causes card to pick private key (call once)
+
+`cktap xpub PINCODE`
+- show the XPUB in effect
+
+`cktap backup PINCODE`
+- save card's XPRV into AES-128-CTR encrypted file with today's date
+
+`cktap change OLDPINCODE NEWPINCODE`
+- change the PIN on the card
+
+`cktap path`
+- show the derivation path in effect, by default: `m/84h/0h/0h`
+
+
 ## Examples
 
 ```
 % cktap 
 Usage: cktap [OPTIONS] COMMAND [ARGS]...
 
+  Interact with SATSCARD and TAPSIGNER cards via NFC tap.
+
+  Command makred [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
+
+  You can use "bal", or "b" for "balance": any distinct prefix for all
+  commands.
+
 Options:
-  -u, --uid HEX  Operate on specific card (default: first found)
-  --help         Show this message and exit.
+  -i, --card-ident BLAHZ-BLAHX-  Operate on specific card (any substring is
+                                 enough)
+  -w, --wait                     Waits until a card is in place.
+  -v, --verbose                  Show traffic with card.
+  --pdb                          Prepare patient for surgery to remove bugs.
+  --help                         Show this message and exit.
 
 Commands:
-  addr     Show current deposit address
-  chain    Get which blockchain (Bitcoin/Testnet) is configured.
-  check    Check you have the spending code correct.
-  core     Show JSON needed to import private keys into Bitcoin Core
-  debug    Start interactive (local) debug session
-  dump     Show state of slot number indicated.
-  list     List all cards detected on any reader attached
-  msg      Sign a short text message
-  open     Get address and open associated bitcoin app to handle
-  qr       Show current deposit address as a QR
-  setup    Setup a new slot with a private key.
-  unseal   Unseal current slot.
-  usage    Show slots usage so far
-  version  Get the version of the card's firmware installed (not upgradable)
-  wif      Show WIF for last unsealed slot, or give slot number
+  addresss  [SC] Show current deposit address
+  backup    [TS] Backup private key from card into AES-128-CTR encrypted...
+  balance   [SC] Show the balance held on all slots
+  certs     Check this card was made by Coinkite: Verifies a certificate...
+  chain     [SC] Get which blockchain (Bitcoin/Testnet) is configured.
+  change    [TS] Change the CVC code (PIN code)
+  check     Verify you have the spending code (CVC) correct.
+  core      [SC] Show JSON needed to import private keys into Bitcoin Core
+  debug     Start interactive (local) debug session.
+  derive    [TS] Change the subkey derivation path to use
+  dump      [SC] Show state of slot number indicated.
+  json      [TS] Dump wallet values in JSON format similar to Coldcard...
+  list      List all cards detected on any reader attached.
+  msg       Sign a short text message (TODO -- INCOMPLETE)
+  open      [SC] Get address and open associated local Bitcoin app to...
+  path      [TS] Show the subkey derivation path in effect
+  qr        [SC] Show current deposit address as a QR (or private key if...
+  setup     Setup with a fresh private key.
+  status    Show a few things about status of card
+  unlock    Clear login delay (takes 15 seconds)
+  unseal    [SC] Unseal current slot and reveal private key.
+  url       Get website URL used for NFC verification, and optionally...
+  usage     [SC] Show slots usage so far.
+  version   Get the version of the card's firmware installed (but not...
+  wif       [SC] Show WIF for last unsealed slot, or give slot number
+  xpub      [TS] Show the xpub in use
 ```
 
 ```

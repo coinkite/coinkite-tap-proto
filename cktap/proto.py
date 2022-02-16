@@ -26,14 +26,6 @@ class CKTapCard:
         ty = 'TAPSIGNER' if getattr(self, 'is_tapsigner', False) else 'SATSCARD'
         return '<%s %s: %s> ' % (self.__class__.__name__, ty, kk)
 
-    @classmethod
-    def find_first(cls):
-        # operate on the first card we can find
-        for c in find_cards():
-            if isinstance(c, cls):
-                return c
-        return None
-
     def send(self, cmd, raise_on_error=True, **args):
         # Send a command, get response, but also catch some card state
         # changes and mirror them in our state.

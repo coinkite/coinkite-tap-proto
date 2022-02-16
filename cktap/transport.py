@@ -56,6 +56,13 @@ def find_cards():
         else:
             print(f"Got ATR: {atr}")
 
+def find_first():
+    # operate on the first card we can find
+    for c in find_cards():
+        return c
+
+    return None
+
 class CKTapTransportABC:
     #
     # Abstract base class. Low level details about talking our protocol.

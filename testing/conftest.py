@@ -1,3 +1,6 @@
+#
+# (c) Copyright 2022 by Coinkite Inc. This file is covered by license found in COPYING-CC.
+#
 import pytest
 
 def pytest_addoption(parser):
@@ -9,10 +12,10 @@ def dev():
     # a connected card (via USB to NFC reader) .. or the emulator
     # use command line flag to pick device/emulation method
 
-    from cktap.transport import CKTapDeviceBase, find_cards
+    from cktap.transport import CKTapCard, find_cards
 
     for c in find_cards():
-        assert isinstance(c, CKTapDeviceBase)
+        assert isinstance(c, CKTapCard)
         return c
     else:
         raise pytest.fail('no card / emulator found')
