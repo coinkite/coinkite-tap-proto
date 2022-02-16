@@ -2,9 +2,9 @@
 
 ## Background
 
-When tapped by a phone that does not have our companion app installed,
+When tapped by a phone that does not have any companion app installed,
 we want the NFC feature to take the user to an page that allows them
-to install the app.
+to install a helper app (ie. wallet).
 
 However, we can do more than that. We can show the deposit address and display
 balance for the SATSCARD. We're doing this already for OPENDIME USB products.
@@ -93,7 +93,9 @@ status explicitly.
 
 ## Code For Decoding
 
-From the `../cktap`, see file [`verify_link.py`](../cktap/verify_link.py).
+From `../cktap`, see file [`verify_link.py`](../cktap/verify_link.py) which
+implements full decode and verification, including address recovery or
+card ident recovery.
 
 ```python
 >>> from cktap.verify_link import url_decoder

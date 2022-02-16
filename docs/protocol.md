@@ -982,13 +982,13 @@ At the factory, we will:
 - derivation paths always:
     - are integers in an array not string
     - hardened components have MSB set (`1<<31`)
-- each card (either type) as a pubkey, which we map into human-readable hash:
-    - sha256(compressed-pubkey)
+- all cards (either type) have a unique pubkey, which we map into human-readable hash, thusly:
+    - sha256(compressed-pubkey=33-bytes)
     - skip first 8 bytes of that (because that's revealed in NFC URL)
-    - base32 and take first 20 chars in 4 groups of five
-    - insert dashes
+    - base32 and take first 20 chars in four groups of five chars
+    - insert dashes between groups
     - result is 23 chars long
-    - see `cktap.utils.card_pubkey_to_ident`
+    - see `cktap.utils.card_pubkey_to_ident` for code
 
 ### Signature Values
 
