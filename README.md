@@ -10,7 +10,9 @@ This repo includes:
 
 # Protocol Specification
 
-See files in [docs](docs).
+[Protocol spec is here.](docs/protocol.md)
+
+Related documentation can be found in [docs subdir](docs).
 
 # Install
 
