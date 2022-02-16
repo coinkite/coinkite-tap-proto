@@ -174,7 +174,7 @@ def main(**kws):
     '''
     Interact with SATSCARD and TAPSIGNER cards via NFC tap.
 
-    Command makred [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
+    Command marked [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
 
     You can use "bal", or "b" for "balance": any distinct prefix for all commands.
 
