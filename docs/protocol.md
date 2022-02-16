@@ -36,7 +36,8 @@ For test and development purposes, when a card is first setup it
 can be marked as operating on Testnet rather than the default of
 Bitcoin Mainnet. This affects the addresses because it is rendered
 with a different HRP (human readable part). On testnet, addresses
-start with "tb1" rather than "bc1".
+start with "tb1" rather than "bc1". Testnet can only be enabled
+in the factory when the card is being born.
 
 ## TAPSIGNER Differences (vs. SATSCARD)
 
