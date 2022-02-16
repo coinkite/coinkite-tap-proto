@@ -1,0 +1,24 @@
+# Requirements both for emulator and test cases.
+pytest
+cbor2==5.4.1
+hexdump==3.3
+wallycore==0.8.4
+bech32==1.2.0
+pyqrcode==1.2.1
+
+ecdsa>=0.13
+
+# for CLI command option parsing
+click>=6.7
+
+#zbar-py==1.0.4
+#pyaes
+
+pyscard==2.0.2
+
+# NFC and NDEF handling
+nfcpy==1.0.3
+ndeflib==0.3.3
+
+# for AES
+cryptography>=36.0.1
