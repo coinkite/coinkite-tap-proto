@@ -1,38 +1,41 @@
 # Changes
 
-Please submit a pull-request if you make some changes that you feel would be helpful to others.
+Please submit a pull request if you make changes that you feel would benefit others.
 
-But please keep in mind:
+Keep in mind:
 
-- breaking changes are a problem, for usual reasons
-- not everyone has the same needs as you
-- there can be security implications for any change
+- Breaking changes are a problem, for usual reasons.
+- Not everyone has the same needs as you.
+- There can be security implications for any change.
+
 
 ## Reference for Maintainers and Contributors
 
 - [Details on setup.py](https://packaging.python.org/tutorials/packaging-projects/)
 
+
 ## Distributing Changes
 
-To build to release for Pypi:
+Building to release for PyPI:
 
-- `python3 setup.py sdist bdist_wheel`
-- creates files in `./dist`
-- then `twine upload --repository-url https://test.pypi.org/legacy/ dist/*` to test
-- visit: <https://test.pypi.org/project/coinkite-tap-protocol/> to preview
-- make a fresh virtual env, activate it.
-- get latest test version: 
+1. `python3 setup.py sdist bdist_wheel`
+  - creates files in `./dist`
+2. Test: `twine upload --repository-url https://test.pypi.org/legacy/ dist/*`
+3. Visit <https://test.pypi.org/project/coinkite-tap-protocol/> to preview.
+4. Make a fresh virtual env and activate it.
+5. Get latest test version:
   `python3 -m pip install --index-url https://test.pypi.org/simple/ coinkite-tap-protocol --no-cache-dir`
-    - but since most dependances aren't on testpypi repo, install those after each error
-    - you may need to force the version number to get the updated file
-- test `cktap address` works
-- test `python -m cktap` works
-- final upload: `twine upload dist/*`
+    - Since most dependancies aren't on the TestPyPI repo, install those after each error.
+    - You may need to force the version number to get the updated file.
+6. Make sure `cktap address` works.
+7. Make sure `python -m cktap` works.
+8. Final upload: `twine upload dist/*`
+
 
 ## How to Release New Version
 
-- update `cktap/__init__.py` with new `__version__` string
-- `python3 setup.py sdist bdist_wheel`
-- maybe delete old version from `./dist`
-- tag source code with new version (at this point)
-- `twine upload dist/*` when ready.
+1. Update `cktap/__init__.py` with new `__version__` string.
+2. `python3 setup.py sdist bdist_wheel`
+  - Maybe delete old version from `./dist`?
+3. Tag source code with new version (at this point).
+4. `twine upload dist/*` when ready.
