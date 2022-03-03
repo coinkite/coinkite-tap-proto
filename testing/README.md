@@ -1,15 +1,16 @@
-# Test code for library
+# Test Code for Library
 
-- not test code for card logic
-- requires a card on USB reader already
-- run with:
+- This is not test code for card logic.
+- Requires a card on a USB reader.
 
+Run with:
 
 ```
 pytest --cvc 250224
 ```
 
-- or omit CVC and tests that need it will be skipped.
-- focus on specific tests using `-k test_name`
+**OR**
 
+Omit the CVC and tests that need it will be skipped.
 
+Focus on specific tests using `-k test_name`.

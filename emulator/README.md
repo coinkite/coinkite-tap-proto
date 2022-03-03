@@ -2,13 +2,13 @@
 
 A python emulator of a single card.
 
-- the CVC is: 123456
-- for TAPSIGNER, AES key is: 41414141414141414141414141414141
-- precise error codes will differ from real product
-- completely insecure
-- uses wallycore for Bitcoin math
-- this code is independant of `cktap` and is stand-alone.
-- no attempt to make it portable: might be MacOS only
+- CVC: 123456
+- **TAPSIGNER<sup>&trade;</sup>** AES key: 41414141414141414141414141414141
+- Precise error codes will differ from real product
+- _Completely_ insecure
+- Uses wallycore for Bitcoin math
+- Code is stand-alone, independent of `cktap`
+- No attempt to make it portable; might be MacOS-only
 
 ## Usage
 
@@ -46,4 +46,3 @@ Command usage:
 
 When emulating a card, commands can be sent to the Unix domain pipe
 at `/tmp/ecard-pipe` as CBOR objects. Responses are CBOR to be decoded.
-
