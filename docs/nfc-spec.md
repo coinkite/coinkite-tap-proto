@@ -2,94 +2,101 @@
 
 ## Background
 
-When tapped by a phone that does not have any companion app installed,
-we want the NFC feature to take the user to an page that allows them
-to install a helper app (ie. wallet).
+When a card taps a phone without a corresponding app installed, the NFC feature should open a web page showing a helper app (i.e., a mobile wallet) to install for interacting with the card.
 
-However, we can do more than that. We can show the deposit address and display
-balance for the SATSCARD. We're doing this already for OPENDIME USB products.
+However, much more than that is possible. For example, we can show a deposit address and display the balance for a **SATSCARD<sup>&trade;</sup>**, something we already do for **OPENDIME<sup>&reg;</sup>** USB products.
 
-Therefore, we want a dynamic NDEF response.
+Therefore, a dynamic NDEF response is desired.
+
 
 ## NDEF Contents
 
-- a single NDEF record, with well-known type for URL (`https://`)
-- applet on card knows how to build NDEF record based on provided prefix
-- suffix is dynamic part of the URL, prefix is hard-coded by factory
+- A single NDEF record, with a well-known URL type (`https://`).
+- The applet on the card knows how to build NDEF record based on the provided prefix.
+- The suffix is the dynamic part of the URL; the prefix is hard-coded by the factory.
+
 
 # URL Details
 
-- it is ampersand-separated, key=value pairs
-- string is URL-encoded already and needs no percent-escaping
-- keys are single-letter, values are mostly fixed-width and short
-- SATSCARD: the current active slot is used, but if it's unused (no key yet) then
-  previous slot is used (and it must have been unsealed).
-- TAPSIGNER: limited information and identity is provided
-- example: `https://getsatscard.com/start#` + `DYNAMICPART`
-- dynamic part is: `u=S&o=3&r=bcajrh2jdk&n=01020304050607&s=fefb...00`
+- Ampersand-separated, key=value pairs
+- String: URL-encoded already, needs no percent-escaping
+- Keys: Single-letter, values are mostly fixed-width and short
+- **SATSCARD:** Uses the current active slot. If the slot is unused (no key, yet) the card uses the previous slot (slot must already be unsealed).
+- **TAPSIGNER<sup>&trade;</sup>:** Limited information and identity are provided.
+
+Example: `https://getsatscard.com/start#` + `DYNAMICPART` </br>
+The dynamic part is: `u=S&o=3&r=bcajrh2jdk&n=01020304050607&s=fefb...00`
+
 
 ## SATSCARD Keys
 
-- `u` = state: S=sealed, U=unsealed, E=error/tamper
-- `o` = slot number of slot being shown here
-- `r` = right most 8 characters of the address
-- `n` = nonce picked by card, in hex, 8 bytes (16 when hex encoded)
-- `s` = signature, 64 bytes (non-recoverable style), hex-encoded
+- `u` = State: S=sealed, U=unsealed, E=error/tamper
+- `o` = Displayed slot's slot number
+- `r` = Address's right-most 8 characters
+- `n` = Card-selected nonce, in hex, 8 bytes (16 when hex-encoded)
+- `s` = Signature, 64 bytes (non-recoverable style), hex-encoded
 
-Notes
 
-- if more than ten slots are supported, and current slot is more than ten, then
-  it's possible the message is variable length as `o` could be `o=23`
-- the 's' field must be last, but otherwise a specific order is not required
+### Notes
+
+- If more than ten slots are supported, and the current slot number is greater than ten, then it's possible the message is variable-length as `o` could be `o=23`.
+- The `s` field _must_ be last, no other order is required.
+
 
 ## TAPSIGNER Keys
 
-- `t` = `1`: Tapsigner mode active
-- `u` = state: S=sealed, U=unused (no key defined yet), E=error/tamper
-- `c` = 8 bytes called `card_ident` in hex (16 chars when hex encoded)
-- `n` = nonce picked by card, in hex, 8 bytes (16 when hex encoded)
-- `s` = signature, 64 bytes (non-recoverable style), hex-encoded
+- `t` = `1`: TAPSIGNER mode is active
+- `u` = State: S=sealed, U=unused (no key defined yet), E=error/tamper
+- `c` = 8 bytes, called `card_ident`, in hex (16 chars when hex-encoded)
+- `n` = Card-selected nonce, in hex, 8 bytes (16 when hex-encoded)
+- `s` = Signature, 64 bytes (non-recoverable style), hex-encoded
 
-Notes
 
-- `card_ident` is `SHA256(card_pubkey)[0:8]`. 
-- full version of that will be on back of card, so it can be revealed via the link decoding process
-- we truncate and then encode it further into base32 groups
-- signature is done using the card private key (not based on contents of any slot)
-- the 's' field must be last, but otherwise a specific order is not required
+### Notes
 
-## Message to be signed
+- The signature is done using the card private key (not based on the contents of any slot).
+- The `s` field _must_ be last, no other order is required.
 
-The dynamic portion is the message being signed. Everything up and
-including the `s=` is included.
 
-- from example above, digest is SHA256(`u=S&o=3&r=bcajrh2jdk&n=01020304050607&s=`)
+#### `card_ident`
 
-## Special states
+- `card_ident` is `SHA256(card_pubkey)[0:8]`.
+- The full version is on the back of the card, so it can be revealed via the link-decoding process.
+- It is truncated and then encoded further into base32 groups.
 
-- if any slot or card is tampered, provide `u=E`
-- use contents of slot zero for other components, if not safe to normal obvious slot (huh?)
+
+## Message to be Signed
+
+The dynamic portion is the message being signed. It consists of everything up to and including the `s=`.
+
+- Digest (from the example): SHA256(`u=S&o=3&r=bcajrh2jdk&n=01020304050607&s=`)
+
+
+## Special States
+
+- Provide `u=E` if a slot or card is tampered with.
+- Use contents of slot zero for other components, if it's not safe to use a normal, obvious slot.
+
 
 ## Nonce
 
-- it is critical a fresh nonce is used every time an NFC read is done (and we do)
-- on the server-side, any duplicate nonce is a fatal error that will be shown to customer
+- It is _critical_ to use a fresh nonce for each NFC read (we do this).
+- On the server side, a duplicate nonce will show the customer a fatal error.
+
 
 # Decoding URL
 
-On the server side (or caller's Javascript, in-browser if we are
-able), we will recover the public key by brute-forcing up to 4
-possible values for the public key compared to the bech32 address
-fragment (or TAPSIGNER: pubkey hash) provided.
+On the server side (or caller's Javascript, in-browser if possible), we will recover the public key by brute-forcing up to 4 possible values for the public key compared to the bech32 address fragment (or TAPSIGNER: pubkey hash) provided.
 
 For SATSCARD, if the bech32 address is on testnet, additional
 comparisons may be required as the URL does not encode testnet
 status explicitly.
 
+
 ## CBOR Command
 
-- we also provide the `url` command which can be used to read the dynamic URL
-  as if a tap had occured.
+- We provide the `url` command which can be used to read the dynamic URL as if a tap had occurred.
+
 
 ## Code For Decoding
 

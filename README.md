@@ -1,41 +1,43 @@
 # Coinkite Tap Protocol and Helper Program
 
-This python library will make it easy to talk to the TAPSIGNER and SATSCARD.
+This Python library enables easy communication with **TAPSIGNER<sup>&trade;</sup>** and **SATSCARD<sup>&trade;</sup>**.
 
-This repo includes:
+Repository contents:
 
 1. The protocol specification
 2. Python library for speaking the protocol
-3. (someday) Examples/libraries in other languages
+3. Supporting documentation
 
-# Full Documentation
+Examples/Libraries in other languages will be added when available.
 
-[Protocol spec](docs/protocol.md) is now public!
+## Documentation Links
 
-Related documentation can be found in [docs subdir](docs).
+- **[docs subdirectory](docs)**
+  - [Protocol specification](docs/protocol.md)
+  - [NFC specification](docs/nfc-spec.md)
+  - [Developer's Guide and Usage Hints for TAPSIGNER](tapsigner-hints.md)
+- [Emulator README](/emulator/README.md)
+- [Testing README](testing/README.md)
 
-[Coinkite-tap-proto source code](https://github.com/coinkite/coinkite-tap-proto)
 
 # Install
 
-This is the python code and command-line utilities you need to communicate with it over USB.
+Necessary Python code and command-line utilities for communication over USB.
 
 ## Setup For Everyday Use
 
-- `pip install 'coinkite-tap-proto[cli]'`
+Install `cktap`, our helpful command-line program: `pip install 'coinkite-tap-proto[cli]'`
 
-This installs a single helpful command line program: `cktap`
+**OR**
 
-If you just want the python library, use:
-
-- `pip install coinkite-tap-proto`
+If you just want the Python library, use: `pip install coinkite-tap-proto`
 
 
 ## Setup If You Might Change the Code
 
-- do a git checkout
-- probably make a fresh virtual env
-- run:
+1. Do a git checkout
+2. Make a fresh virtualenv (suggested)
+3. Run:
 
 ```
 pip install -r requirements.txt
@@ -44,43 +46,48 @@ pip install --editable '.[cli]'
 
 ## Requirements
 
-- python 3.6 or higher
-- `pyscard` for access to smartcard readers
-- a supported smart-card reader:
-    - "ACS ACR1252U" is okay and widely available.
-    - "Identiv uTrust 3700F" is reliable and looks nice
-    - HID Omnikey 5022 CL (not 5021) is fast, cute and small.
-    - "ACS ACR122U" can work, and is widely available, but is not reliable nor recommended!
-    - in theory, all smartcard USB CCID class-compliant devices should work.
-- see `requirements.txt` file for more details.
+- Python 3.6 or higher
+- `pyscard` for access to smart card readers
+- A supported smart card reader. In theory, all smart card USB CCID class-compliant devices should work. Our observations:
+    - **ACS ACR1252U** - okay and widely available
+    - **Identiv uTrust 3700F** - reliable and looks nice
+    - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
+    - **NOT recommended:** ACS ACR122U. It can work, and is widely available, but is not reliable.
+- See `requirements.txt` file for more details.
+
 
 ## Windows Notes
 
-- to install pyscard, I needed swig installed:
-    - download zip from <http://swig.org>
-    - extract, move into `C:\Program Files`
-    - add that to system PATH
-    - test: `swig` at command prompt should work
-    - then `pip install pyscard` worked
+Installing `pyscard` may require SWIG:
+
+1. Download .zip from <http://swig.org>.
+2. Extract and move into `C:\Program Files`.
+3. Add that to system PATH.
+4. Test: `swig` at command prompt should work.
+5. Run `pip install pyscard`.
+
 
 ## FreeBSD Notes
 
-- tested against 13.0-RELEASE
-- need `pkg install py38-pyscard py38-coincurve` 
+Tested against 13.0-RELEASE.
+
+1. `pkg install py38-pyscard py38-coincurve`
     - follow devfs.conf instructions
     - install usr/ports/devel/libccid
     - add `pcscd_enable="YES"` to rc.conf
-- `pip install base58`
-- `pip install -e git+https://github.com/coinkite/python-bip32.git@iss27#egg=bip32`
-- make your virtualenv with: `virtualenv ENV --system-site-packages`
-- need `pkg install py38-secp256k1` (which pulls a tragic set of dependencies)
-- MAYBE: 'swig' is needed to build wheel for `pyscard`, so `pkg install swig`?
+2. `pip install base58`
+3. `pip install -e git+https://github.com/coinkite/python-bip32.git@iss27#egg=bip32`
+4. Make your virtualenv with: `virtualenv ENV --system-site-packages`
+5. `pkg install py38-secp256k1` (pulls a tragic set of dependencies)
+
+**NOTE:** SWIG is needed to build wheel for `pyscard`. You may need to run `pkg install swig`.
+
 
 ## Emulator
 
-There is python code for an emulator which communicates with `cktap`
-via a local Unix socket. It's provided without warrantee and isn't
-installed by default. `cktap` will prefer to speak to the emulator
+Python code for an emulator which communicates with `cktap`
+via a local Unix socket. It's provided without warranty and isn't
+installed by default. `cktap` prefers to speak to the emulator
 if it is running.
 
 See [README for emulator](emulator/README.md).
@@ -91,67 +98,68 @@ See [README for emulator](emulator/README.md).
 >>> from cktap import find_first
 >>> card = find_first()
 >>> print(card)
-<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL> 
+<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
 >>> card.address()
 'bc1q7h0u5yn8y4pajn94ze4gnhz487c8ysvekusqj5'
 ```
 
 # Using the CLI
 
+
 ## Providing CVC
 
 Any command which reveals private key info or changes the state of
-the card will require the 6-digit numeric code from the back of the
-card (called CVC or "spend code", or "Starting PIN Code" on TAPSIGNER).
-You can provide this on the command line, or omit it. When required,
-you will be prompted for the CVC if it wasn't on the command line.
-Some commands will display what information they can without the
-CVC. In those cases, to see more detail, add the CVC on the command line.
+the card requires the 6-digit numeric code from the back of the
+card (called _CVC_, _spend code_, or _Starting PIN Code_ on TAPSIGNER).
+You can provide this on the command line, or omit it. Commands requiring the CVC but entered without it will prompt you for the CVC.
+Some commands display limited information without the CVC. To see more detail, include the CVC on the command line.
+
 
 ## Most Useful Commands
 
+
 ### SATSCARD
 
-`cktap open` 
-- opens Bitcoin Core or your other wallet, by activating the BITCOIN:addr 
-URL scheme for the current slot of the card.
+`cktap open`
+- Opens Bitcoin Core or your other wallet by activating the BITCOIN:addr URL scheme for the current slot of the card.
 
-`cktap qr` 
-- displays QR code for deposit
+`cktap qr`
+- Displays deposit QR code.
 
 `cktap unseal`
-- unseals the current slot and shows the WIF for funds sweeping
-- you will require a blockchain-aware wallet to import that WIF into
+- Unseals the current slot and shows the WIF for funds sweeping.
+- WIF must be imported into a blockchain-aware wallet.
 
 `cktap balance`
-- calls a webservice to get UTXO and show current Bitcoin balance
-- if you have `tord` already running locally, it will be used to proxy the request
+- Calls a web service to get UTXO and show current Bitcoin balance.
+- Uses `tord` (if running locally) to proxy the request.
+
 
 ### TAPSIGNER
 
 `cktap status`
-- show info about state
+- Shows status info.
 
 `cktap setup`
-- causes card to pick private key (call once)
+- Tells card to pick private key (call once).
 
 `cktap xpub`
-- show the XPUB in effect
+- Shows the XPUB in effect.
 
 `cktap backup`
-- save card's XPRV into AES-128-CTR encrypted file with today's date
+- Saves the card's XPRV into an AES-128-CTR encrypted file with the current date.
 
 `cktap change OLDPINCODE NEWPINCODE`
-- change the PIN on the card
+- Use to change the PIN on the card
 
 `cktap path`
-- show the derivation path in effect, by default: `m/84h/0h/0h`
+- Shows the derivation path in effect, by default: `m/84h/0h/0h`
 
 
 ## Detailed Examples
 
 ```
-% cktap 
+% cktap
 Usage: cktap [OPTIONS] COMMAND [ARGS]...
 
   Interact with SATSCARD and TAPSIGNER cards via NFC tap.
@@ -198,8 +206,8 @@ Commands:
   xpub      [TS] Show the xpub in use
 
 % cktap list
-<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL> 
-<CKTapCard TAPSIGNER: RUIXK-5XI6U-G55IQ-DVGVI> 
+<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
+<CKTapCard TAPSIGNER: RUIXK-5XI6U-G55IQ-DVGVI>
 
 % cktap -i RUIXK status
 -- TAPSIGNER Card --
@@ -225,12 +233,12 @@ SLOT# |  STATUS  | ADDRESS
   1   | UNSEALED | (use spend code to view)
   2   | UNSEALED | (use spend code to view)
   3   | sealed   | bc1qu4vsv2jqgl0y30ehrs4d0dg23xazpgnxdwuqum
-  4   | unused   | 
-  5   | unused   | 
-  6   | unused   | 
-  7   | unused   | 
-  8   | unused   | 
-  9   | unused   | 
+  4   | unused   |
+  5   | unused   |
+  6   | unused   |
+  7   | unused   |
+  8   | unused   |
+  9   | unused   |
 
 % cktap usage 123456
 SLOT# |  STATUS  | ADDRESS
@@ -239,12 +247,12 @@ SLOT# |  STATUS  | ADDRESS
   1   | UNSEALED | bc1qe8q7zjtj7utsjlgsq9vn7dl6gqf7kj02tuuec6
   2   | UNSEALED | bc1q9n97zn2nwp7cdhujsgqpgqpv0z49f70lxz9ns2
   3   | sealed   | bc1qu4vsv2jqgl0y30ehrs4d0dg23xazpgnxdwuqum
-  4   | unused   | 
-  5   | unused   | 
-  6   | unused   | 
-  7   | unused   | 
-  8   | unused   | 
-  9   | unused   | 
+  4   | unused   |
+  5   | unused   |
+  6   | unused   |
+  7   | unused   |
+  8   | unused   |
+  9   | unused   |
 
 % cktap qr -o today.svg
 (SVG of QR is saved to file)
@@ -253,7 +261,7 @@ SLOT# |  STATUS  | ADDRESS
 bc1qu4vsv2jqgl0y30ehrs4d0dg23xazpgnxdwuqum
 
 % cktap wif -s 1
-Enter spending code (6 digits): 
+Enter spending code (6 digits):
 p2wpkh:L16cgmhZJWD7fq3eDi3gL7Yko6WYixxZi4f5T3XxxDCF2HnZdHJa
 
 
