@@ -29,7 +29,8 @@ def hash160(x):
     from .ripemd import RIPEMD160
     return RIPEMD160(sha256s(x)).digest()
 
-# Other codes must implement...
+# Other codes must be implemented elsewhere...
+#
 
 def CT_pick_keypair():
     # return (priv, pub)

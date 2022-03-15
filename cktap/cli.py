@@ -412,7 +412,8 @@ def dump_slot(slot, cvc):
     # XXX too low-level/hexy
     card = get_card(only_satscard=True)
 
-    session_key, resp = card.send_auth('dump', cleanup_cvc(card, cvc, missing_ok=True), slot=slot)
+    cvc = cleanup_cvc(card, cvc, missing_ok=True)
+    session_key, resp = card.send_auth('dump', cvc, slot=slot)
     if 'privkey' in resp:
         resp['privkey'] = xor_bytes(session_key, resp['privkey'])
 
@@ -462,13 +463,11 @@ def get_path():
 @click.argument('path', type=str, metavar="84h/0h/0h", required=True)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def set_derivation(path, cvc):
-    "[TS] Change the subkey derivation path to use"
+    "[TS] Change the subkey derivation path to use (shows xpub)"
     card = get_card(only_tapsigner=True)
 
-    child_depth, cc, pub = card.set_derivation(path, cleanup_cvc(card, cvc))
-
-    #print(cc.hex())
-    #print(pub.hex())
+    cvc = cleanup_cvc(card, cvc)
+    child_depth, cc, pub = card.set_derivation(path, cvc)
 
     print(card.get_xpub(cvc))
     
@@ -689,7 +688,7 @@ def card_status():
         else:
             print(f'No key picked yet')
     else:
-        print(f'Address: ' + card.address())
+        print(f'Address: {card.address()}')
 
 @main.command('xpub')
 @click.option('--master', '-m', is_flag=True, help="Show master XPUB instead of derived")

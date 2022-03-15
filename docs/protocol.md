@@ -101,8 +101,8 @@ derivation path, such as
 is controlled by the wallet application. That field is only
 present if a master key has been picked (ie. setup is complete).
 
-Each time the backup command is used, the `num_backups` value increments (up to a maximum
-value of 127).
+Each time the backup command is used, the `num_backups` value
+increments (up to a maximum value of 127).
 
 Here's an example response:
 
@@ -691,16 +691,17 @@ lines of data may be exported in future versions):
 
 Example:
 ```
-XPRV.... 
+xprv.... 
 m/84h/0h/0h
 ```
 
 The data can be viewed with `openssl aes-128-ctr -iv 0 -K HEX-on-back-of-card`.
-Future versions of the product may include additional values in this response.
+Future versions of the product may include additional values in this response,
+on subsequent lines.
 
-From the master XPRV any key produced by the card can be reconstructed.
+From the master XPRV, any key produced by the card can be reconstructed.
 The card will also capture the current derivation path (from `derive`
-command).  For a complete backup, output scripts, address types
+command).  For a complete backup, output scripts and address types
 should also be captured, but for standardized usage (ie. BIP
 compliant), that can be implied by the derivation path itself.
 

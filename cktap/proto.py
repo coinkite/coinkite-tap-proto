@@ -68,6 +68,8 @@ class CKTapCard:
         st = self.send('status')
         assert 'error' not in st, 'Early failure: ' + repr(st)
         assert st['proto'] == 1, "Unknown card protocol version"
+        if st.get('tampered'):
+            print("WARNING: Card has set tampered flag!")
 
         self.card_pubkey = st['pubkey']
         self.card_ident = card_pubkey_to_ident(self.card_pubkey)
@@ -193,7 +195,8 @@ class CKTapCard:
         return hash160(xpub[-33:])[0:4]
 
     def get_xpub(self, cvc, master=False):
-        # provide XPUB, either derived or master one (BIP-32 serialized and base58 encoded)
+        # fetch XPUB, either derived or master one
+        # - result is BIP-32 serialized and base58-check encoded
         assert self.is_tapsigner
         _, st = self.send_auth('xpub', cvc, master=master)
         xpub = st['xpub']
