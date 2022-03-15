@@ -474,14 +474,17 @@ class CardState:
             cc = s.deriv_chain_code
             pubkey = s.pubkey
             depth = len(s.deriv_path)
-            pfp = bytes([0xff]*4)       ## wrong
+            pfp = bytes([0xff]*4)       ## wrong, but compromise
             kid_num = s.deriv_path[-1] if s.deriv_path else 0
 
         vers = bytes.fromhex('0488B21E' if not self.testnet else '043587CF')
 
         from struct import pack
+        rv = vers + bytes([depth]) + pfp + pack('>I', kid_num) + cc + pubkey
+        assert len(rv) == 78
 
-        return dict(xpub=(vers + bytes([depth]) + pfp + pack('>I', kid_num) + cc + pubkey))
+        self._new_nonce()
+        return dict(xpub=rv, card_nonce=self.nonce)
 
     def cmd_dump(self, slot=REQUIRED, epubkey=None, xcvc=None, **unused):
         # Dump information about used slots.
@@ -491,7 +494,7 @@ class CardState:
         assert 0 <= slot < NUM_SLOTS, "bad slot"
 
         if not epubkey or not xcvc:
-            assert epubkey==None and xcvc==None, 'both xcvc and xpubkey or neither'
+            assert epubkey==None and xcvc==None, 'both xcvc and epubkey or neither'
             ses_key = None
         else:
             ses_key = self._validate_cvc('dump', epubkey, xcvc)

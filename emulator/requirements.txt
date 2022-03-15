@@ -5,6 +5,7 @@ hexdump==3.3
 wallycore==0.8.4
 bech32==1.2.0
 pyqrcode==1.2.1
+base58==2.1.1
 
 ecdsa>=0.13
 
