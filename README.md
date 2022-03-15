@@ -12,21 +12,21 @@ Examples/Libraries in other languages will be added when available.
 
 ## Documentation Links
 
-- **[docs subdirectory](docs)**
+- **[Docs and Spec subdirectory (./docs)](docs)**
   - [Protocol specification](docs/protocol.md)
   - [NFC specification](docs/nfc-spec.md)
-  - [Developer's Guide and Usage Hints for TAPSIGNER](tapsigner-hints.md)
-- [Emulator README](/emulator/README.md)
+  - [Developer's Guide and Usage Hints for TAPSIGNER](docs/tapsigner-hints.md)
+- [Emulator README](emulator/README.md)
 - [Testing README](testing/README.md)
 
 
 # Install
 
-Necessary Python code and command-line utilities for communication over USB.
-
 ## Setup For Everyday Use
 
-Install `cktap`, our helpful command-line program: `pip install 'coinkite-tap-proto[cli]'`
+Install `cktap`, our helpful command-line program, with just:
+
+    pip install 'coinkite-tap-proto[cli]'
 
 **OR**
 
@@ -44,11 +44,15 @@ pip install -r requirements.txt
 pip install --editable '.[cli]'
 ```
 
+This installs `cktap` and any changes you make will be immediately
+reflected in the installed version.
+
 ## Requirements
 
 - Python 3.6 or higher
 - `pyscard` for access to smart card readers
-- A supported smart card reader. In theory, all smart card USB CCID class-compliant devices should work. Our observations:
+- A supported smart card reader. In theory, all smart card USB CCID class-compliant
+  devices should work. Our observations:
     - **ACS ACR1252U** - okay and widely available
     - **Identiv uTrust 3700F** - reliable and looks nice
     - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
@@ -111,8 +115,10 @@ See [README for emulator](emulator/README.md).
 Any command which reveals private key info or changes the state of
 the card requires the 6-digit numeric code from the back of the
 card (called _CVC_, _spend code_, or _Starting PIN Code_ on TAPSIGNER).
-You can provide this on the command line, or omit it. Commands requiring the CVC but entered without it will prompt you for the CVC.
-Some commands display limited information without the CVC. To see more detail, include the CVC on the command line.
+You can provide this on the command line, or omit it. Commands
+requiring the CVC but entered without it will prompt you for the
+CVC.  Some commands display limited information without the CVC.
+To see more detail, include the CVC on the command line.
 
 
 ## Most Useful Commands
