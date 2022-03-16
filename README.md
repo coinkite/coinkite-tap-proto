@@ -98,6 +98,8 @@ See [README for emulator](emulator/README.md).
 
 # Using the Library
 
+### SATSCARD
+
 ```python
 >>> from cktap import find_first
 >>> card = find_first()
@@ -105,6 +107,17 @@ See [README for emulator](emulator/README.md).
 <CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
 >>> card.address()
 'bc1q7h0u5yn8y4pajn94ze4gnhz487c8ysvekusqj5'
+```
+
+### TAPSIGNER
+
+```python
+>>> from cktap import find_first
+>>> card = find_first()
+>>> print(card)
+<CKTapCard TAPSIGNER via EMU: 2LNJA-NIGMW-Q5AKC-KD5Q2> 
+>>> card.get_xpub('123456')
+'xpub6DXuQW17LykdXFyEtRrq9Z3MAegRPLAwFovT34afzK6NNHkwJrWCs4Knhrjf1U22QSSbykyzpfRsDZc9ryk9b6VUfGp89vkQw6YjY4CaEQ3'
 ```
 
 # Using the CLI
@@ -124,7 +137,7 @@ To see more detail, include the CVC on the command line.
 ## Most Useful Commands
 
 
-### SATSCARD
+### For SATSCARD
 
 `cktap open`
 - Opens Bitcoin Core or your other wallet by activating the BITCOIN:addr URL scheme for the current slot of the card.
@@ -141,7 +154,7 @@ To see more detail, include the CVC on the command line.
 - Uses `tord` (if running locally) to proxy the request.
 
 
-### TAPSIGNER
+### For TAPSIGNER
 
 `cktap status`
 - Shows status info.
