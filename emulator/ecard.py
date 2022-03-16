@@ -11,7 +11,7 @@ from hashlib import sha256
 from dataclasses import dataclass, field
 from pprint import pprint, pformat
 from hexdump import hexdump
-import cbor2, bech32
+import cbor2, bech32, base58
 
 # see <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
 from wallycore import ec_sig_verify, ec_public_key_verify, ec_sig_to_public_key
@@ -278,10 +278,15 @@ class CardState:
 
     def cmd_read(self, nonce=REQUIRED, **unused):
         # implement "read" command which is used to calculate full address and verify everything
+        # - authenticated on TAPSIGNER, but not on SATSCARD
         assert len(nonce) == USER_NONCE_SIZE, 'bad nonce size'
         if len(set(nonce)) == 1: raise CKErrorCode("weak nonce", 417)
         if not self.cvc: raise CKErrorCode('card not yet setup', 406)
         assert self.cur_slot.is_used, 'slot unused'
+
+        if self.is_tapsigner:
+            # auth required, but for TAPSIGNER case only
+            ses_key = self._validate_cvc('read', unused['epubkey'], unused['xcvc'])
 
         msg = b'OPENDIME' + self.nonce + nonce + bytes([self.active_slot])
         assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE + 1
@@ -290,7 +295,12 @@ class CardState:
         sig = ec_sig_from_digest(self.cur_slot.privkey, sha256s(msg), EC_FLAG_ECDSA)
         self._new_nonce()
 
-        return dict(sig=sig, card_nonce=self.nonce, pubkey=self.cur_slot.pubkey)
+        if self.is_tapsigner:
+            pk = self.cur_slot.pubkey[0:1] + xor_bytes(ses_key, self.cur_slot.pubkey[1:])
+        else:
+            pk = self.cur_slot.pubkey
+
+        return dict(sig=sig, card_nonce=self.nonce, pubkey=pk)
 
     def cmd_new(self, slot=REQUIRED, epubkey=REQUIRED, xcvc=REQUIRED, chain_code=None, path=None, **unused):
         # Pick a new key for current slot
@@ -434,8 +444,8 @@ class CardState:
 
     def cmd_unseal(self, slot=REQUIRED, epubkey=REQUIRED, xcvc=REQUIRED, **unused):
         # Unseal current slot
-        if self.is_tapsigner: raise CKErrorCode('not for ts', 404)
         if not self.cvc: raise CKErrorCode('card not yet setup', 406)
+        if self.is_tapsigner: raise CKErrorCode('not for ts', 404)
 
         ses_key = self._validate_cvc('unseal', epubkey, xcvc)
 
@@ -477,14 +487,27 @@ class CardState:
             pfp = bytes([0xff]*4)       ## wrong, but compromise
             kid_num = s.deriv_path[-1] if s.deriv_path else 0
 
-        vers = bytes.fromhex('0488B21E' if not self.testnet else '043587CF')
-
-        from struct import pack
-        rv = vers + bytes([depth]) + pfp + pack('>I', kid_num) + cc + pubkey
-        assert len(rv) == 78
+        rv = self._encode_xpub(cc, pubkey, depth, pfp, kid_num)
 
         self._new_nonce()
         return dict(xpub=rv, card_nonce=self.nonce)
+
+    def _encode_xpub(self, cc, pubkey_or_privkey, depth=0, pfp=bytes(4), kid_num=0):
+        # make xpub (bip32 serialization)
+        from struct import pack
+
+        if len(pubkey_or_privkey) == 32:
+            vers = bytes.fromhex('0488ADE4' if not self.testnet else '04358394')
+            key = b'\0' + pubkey_or_privkey
+        else:
+            assert len(pubkey_or_privkey) == 33
+            key = pubkey_or_privkey
+            vers = bytes.fromhex('0488B21E' if not self.testnet else '043587CF')
+
+        rv = vers + bytes([depth]) + pfp + pack('>I', kid_num) + cc + key
+        assert len(rv) == 78
+
+        return rv
 
     def cmd_dump(self, slot=REQUIRED, epubkey=None, xcvc=None, **unused):
         # Dump information about used slots.
@@ -628,17 +651,21 @@ class CardState:
         # check security and calc shared session key
         ses_key = self._validate_cvc('backup', epubkey, xcvc)
 
-        d = dict(chain_code=self.cur_slot.chain_code, privkey=self.cur_slot.master_pk,
-                    path=self.cur_slot.deriv_path)
+        # text format contents
+        xpub = self._encode_xpub(self.cur_slot.chain_code, self.cur_slot.master_pk)
+        raw = (     base58.b58encode_check(xpub)
+                    + b'\n'
+                    + path2str(self.cur_slot.deriv_path).encode('ascii')
+                    + b'\n'  )
 
-        raw = cbor2.dumps(d)
-
+        # AES encrypt
         from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
         enc = Cipher(algorithms.AES(self.aes_key), modes.CTR(bytes(16))).encryptor()
         rv = enc.update(raw) + enc.finalize()
         
         if self.num_backups != 127:
             self.num_backups += 1
+
         self._new_nonce()
         return dict(data=rv, card_nonce=self.nonce)
 
@@ -1006,8 +1033,11 @@ def ts_basic_test():
     bk = card.cmd_backup(epubkey=my_pub, xcvc=xcvc)
     open('debug.aes', 'wb').write(bk['data'])
     dec = subprocess.check_output(f'openssl aes-128-ctr -iv 0 -K {aes_key.hex()} < debug.aes', shell=1)
-    dec = cbor2.loads(dec)
-    assert dec.keys() == { 'chain_code', 'path', 'privkey' }
+    xxp, ppp, *_ = dec.decode('ascii').split('\n')
+    assert xxp[1:4] == 'prv'
+    assert len(base58.b58decode_check(xxp)) == 78
+    assert ppp.startswith('m')
+
     print(f"BACKUP works")
 
     certs = card.cmd_certs()
@@ -1043,6 +1073,10 @@ def ts_basic_test():
     new_cvc = xor_bytes(b'123456', ses_key[0:6])
     resp = card.cmd_change(nonce=my_nonce, data=new_cvc, epubkey=my_pub, xcvc=xcvc)
     assert resp['success']
+
+    # read
+    ses_key, xcvc = calc_xcvc('read', resp['card_nonce'], card_pubkey, my_priv, b'123456')
+    resp = card.cmd_read(nonce=my_nonce, data=new_cvc, epubkey=my_pub, xcvc=xcvc)
 
     print("change CVC works")
 
