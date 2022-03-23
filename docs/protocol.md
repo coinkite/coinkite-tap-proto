@@ -422,7 +422,8 @@ MSB must be set on all these values as only hardened derivations
 are supported.
 
 If not provided, the existing derivation
-path is unchanged by this command. Authentication is required.
+path is unchanged by this command. The path can be up to 8 levels deep.
+Authentication is required.
 
 
 ### `certs`
@@ -1154,7 +1155,7 @@ New concept of `card_ident` value:
 - Shared derived pubkey, since there is no `read` command
 
 `new`
-- New derivation path
+- Different derivation path
 
 `dump`
 - Removed
