@@ -43,7 +43,7 @@ HARDENED = 0x8000_0000
 def path2str(path):
     # take numeric path (list of numbers) and convert to human form
     # - standardizing on "m/84h" style
-    return '/'.join(['m'] + [ str(i & ~HARDENED)+('h' if i&HARDENED else '') for i in path])
+    return '/'.join(['m'] + [str(i & ~HARDENED)+('h' if i&HARDENED else '') for i in path])
 
 def str2path(path):
     # normalize notation and return numbers, no error checking
@@ -54,9 +54,9 @@ def str2path(path):
         if not i: continue      # trailing or duplicated slashes
 
         if i[-1] in "p'h":
-            here = int(i[:-1]) | HARDENED
+            here = int(i[:-1], 0) | HARDENED
         else:
-            here = int(i)
+            here = int(i, 0)
 
         rv.append(here)
 
@@ -108,16 +108,34 @@ def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
 
     return FACTORY_ROOT_KEYS[pubkey]
 
+def recover_pubkey(status_resp, read_resp, my_nonce, ses_key):
+    # [TS] Given the response from "status" and "read" commands,
+    # and the nonce we gave for read command, and session key ... reconstruct
+    # the card's current pubkey.
+    assert status_resp.get('tapsigner', False)
+
+    msg = b'OPENDIME' + status_resp['card_nonce'] + my_nonce + bytes([0])
+    assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE + 1
+
+    # have to decrypt pubkey
+    pubkey = read_resp['pubkey']
+    pubkey = pubkey[0:1] + xor_bytes(pubkey[1:], ses_key)
+
+    # Critical: proves card knows key
+    ok = CT_sig_verify(pubkey, sha256s(msg), read_resp['sig'])
+    if not ok:
+        raise RuntimeError("Bad sig in recover_pubkey")
+
+    return pubkey
+
 def recover_address(status_resp, read_resp, my_nonce):
-    # Given the response from "status" and "read" commands, and the nonce we gave for read command,
-    # reconstruct the card's verified payment address. Check prefix/suffix match what's expected
-    r = status_resp
+    # [SC] Given the response from "status" and "read" commands, and the
+    # nonce we gave for read command, reconstruct the card's verified payment
+    # address. Check prefix/suffix match what's expected
+    assert not status_resp.get('tapsigner', False)
 
-    expect = status_resp['addr']
-    left = expect[0:expect.find('_')]
-    right = expect[expect.rfind('_')+1:]
-
-    msg = b'OPENDIME' + status_resp['card_nonce'] + my_nonce + bytes([status_resp['slots'][0]])
+    sl = status_resp['slots'][0]
+    msg = b'OPENDIME' + status_resp['card_nonce'] + my_nonce + bytes([sl])
     assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE + 1
 
     pubkey = read_resp['pubkey']
@@ -127,8 +145,12 @@ def recover_address(status_resp, read_resp, my_nonce):
     if not ok:
         raise RuntimeError("Bad sig in recover_address")
 
+    expect = status_resp['addr']
+    left = expect[0:expect.find('_')]
+    right = expect[expect.rfind('_')+1:]
+
     # Critical: counterfieting check
-    addr = render_address(pubkey, r.get('testnet', False))
+    addr = render_address(pubkey, status_resp.get('testnet', False))
     if not (addr.startswith(left)
                 and addr.endswith(right)
                 and len(left) == len(right) == ADDR_TRIM):

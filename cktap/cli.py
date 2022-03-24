@@ -16,7 +16,7 @@ from functools import wraps
 from getpass import getpass
 
 from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
-from .utils import make_recoverable_sig, render_sats_value, path2str
+from .utils import make_recoverable_sig, render_sats_value, path2str, pick_nonce
 from .compat import sha256s
 from .constants import *
 from .exceptions import CardRuntimeError
@@ -267,6 +267,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
 
     # XXX until then, pretend we are living in a simple 2010 world.
     # - I don't know of any tools which can be used to verify this signature... so it's useless
+    # XXX on TS, this could work and be useful .. because we'd just share a classic address
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
 
@@ -429,9 +430,9 @@ def check_cvc(cvc):
 
     # do a dump command
     if card.is_tapsigner:
-        # XXX need a command w/o side effects for TS
-        cmd = 'wait'
-        args = dict()
+        # a command w/o side effects for TS
+        cmd = 'read'
+        args = dict(nonce=pick_nonce())
     else:
         cmd = 'dump'
         args = dict(slot=0)
@@ -462,14 +463,25 @@ def get_path():
 @main.command('derive')
 @click.argument('path', type=str, metavar="84h/0h/0h", required=True)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
-def set_derivation(path, cvc):
+@click.option('--skip-checks', '-x', is_flag=True, help="Skip extra checking of pubkey")
+def set_derivation(path, cvc, skip_checks):
     "[TS] Change the subkey derivation path to use (shows xpub)"
     card = get_card(only_tapsigner=True)
 
     cvc = cleanup_cvc(card, cvc)
     child_depth, cc, pub = card.set_derivation(path, cvc)
 
-    print(card.get_xpub(cvc))
+    xp = card.get_xpub(cvc)
+
+    if not skip_checks:
+        # extra checking; robust against MitM (cost = 20ms)
+        from base58 import b58decode_check
+        expect_pubkey = b58decode_check(xp)[-33:]
+
+        got_pubkey = card.get_pubkey(cvc)
+        assert expect_pubkey == got_pubkey
+
+    print(xp)
     
         
 @main.command('certs')
@@ -681,6 +693,10 @@ def card_status():
 
     print(f'Card ident: {card.card_ident}')
     print(f'Birth Height: {card.birth_height}')
+
+    if card.auth_delay:
+        print(f'Needs auth delay: {card.auth_delay} seconds')
+
     if card.is_tapsigner:
         print(f'Number of backups: {st["num_backups"]}')
         if 'path' in st:
@@ -688,13 +704,15 @@ def card_status():
         else:
             print(f'No key picked yet')
     else:
+        print(f'Active Slot: {card.active_slot or "first"}')
         print(f'Address: {card.address()}')
 
 @main.command('xpub')
 @click.option('--master', '-m', is_flag=True, help="Show master XPUB instead of derived")
 @click.option('--show-path', '-p', is_flag=True, help="Show path as well")
+@click.option('--skip-checks', '-x', is_flag=True, help="Skip extra checking of pubkey")
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
-def get_xpub(master, cvc, show_path):
+def get_xpub(master, cvc, show_path, skip_checks):
     "[TS] Show the xpub in use"
     # meant as a starting point? no auth
     # TODO: make more useful, and be default cmd?
@@ -706,6 +724,14 @@ def get_xpub(master, cvc, show_path):
         click.echo(card.get_derivation() + '\n')
 
     xpub = card.get_xpub(cvc, master)
+
+    if not skip_checks:
+        # extra checking; robust against MitM (cost = 20ms)
+        from base58 import b58decode_check
+        expect_pubkey = b58decode_check(xpub)[-33:]
+
+        got_pubkey = card.get_pubkey(cvc)
+        assert expect_pubkey == got_pubkey
 
     click.echo(xpub)
 

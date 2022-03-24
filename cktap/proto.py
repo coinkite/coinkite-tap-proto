@@ -183,8 +183,10 @@ class CKTapCard:
             raise ValueError("All path components must be hardened")
 
         _, resp = self.send_auth('derive', cvc, path=np, nonce=pick_nonce())
+
         # XXX need FP of parent key and master (XFP)
-        # XPUB would be better result here
+        # XPUB would be better result here, but caller can use get_xpub() next
+
         return len(np), resp['chain_code'], resp['pubkey']
 
     def get_xfp(self, cvc):
@@ -201,6 +203,18 @@ class CKTapCard:
         _, st = self.send_auth('xpub', cvc, master=master)
         xpub = st['xpub']
         return base58.b58encode_check(xpub).decode('ascii')
+
+    def get_pubkey(self, cvc):
+        # TAPSIGNER only: Get the public key for current derived path
+        # - on TS, it's an authenticated command: 'read'
+        # - equiv. to get_xpub(master=False) and looking at part of that value
+        # - fairly pointless
+        assert self.is_tapsigner
+        n = pick_nonce()
+        st = self.send('status')
+        ses_key, rr = self.send_auth('read', cvc, nonce=n)
+
+        return recover_pubkey(st, rr, n, ses_key)
 
     def make_backup(self, cvc):
         # read the backup file; gives ~100 bytes to be kept long term
@@ -305,5 +319,6 @@ class CKTapCard:
 
     # TODO
     # - 'sign_digest' command which does the retries needed
+    # - 'wait' command which does delay needed, if any (no UX)
 
 # EOF
