@@ -2,6 +2,8 @@
 
 This Python library enables easy communication with **TAPSIGNER<sup>&trade;</sup>** and **SATSCARD<sup>&trade;</sup>**.
 
+**-==[Request card development samples [here](https://coinkite.cards/dev)]==-**
+
 Repository contents:
 
 1. The protocol specification
