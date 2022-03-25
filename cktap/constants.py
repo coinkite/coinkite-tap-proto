@@ -13,8 +13,8 @@ NUM_SLOTS = 10
 CVC_LENGTH = 6
 
 # no need to scan the blockchain before this point in time, since product didn't exist yet
-# TODO: update to a date closer to product launch
-PROJECT_EPOC_TIME_T = 1637600000
+# - March 25/2022
+PROJECT_EPOC_TIME_T = 1648215566
 
 # length from start/end of bech32 address that is provided
 # - center part will be replaced with three underscores
@@ -26,8 +26,12 @@ USER_NONCE_SIZE = 16
 
 # published Coinkite factory root keys
 FACTORY_ROOT_KEYS = { 
+    bytes.fromhex('03028a0e89e70d0ec0d932053a89ab1da7d9182bdc6d2f03e706ee99517d05d9e1'):
+        'Root Factory Certificate',
+
+    # obsolete dev value, but keeping for a little while longer
     bytes.fromhex('027722ef208e681bac05f1b4b3cc478d6bf353ac9a09ff0c843430138f65c27bab'):
-        'Root Factory Certificate (TESTING)',
+        'Root Factory Certificate (TESTING ONLY)',
 }
 
 # our cards will provide this answer to reset (ATR)
