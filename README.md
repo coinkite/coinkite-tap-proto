@@ -57,7 +57,7 @@ reflected in the installed version.
     - **Identiv uTrust 3700F** - reliable and looks nice
     - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
     - **NOT recommended:** ACS ACR122U. It can work, and is widely available, but is not reliable.
-- See `requirements.txt` file for more details.
+- See `requirements.txt` file for python packages needed.
 
 
 ## Windows Notes

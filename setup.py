@@ -48,7 +48,7 @@ cli_requirements = [
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-from cktap import __version__
+from cktap.version import __version__
 
 setup(
     name='coinkite-tap-protocol',
