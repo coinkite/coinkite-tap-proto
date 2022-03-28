@@ -62,6 +62,16 @@ reflected in the installed version.
 - See `requirements.txt` file for more details.
 
 
+## Ubuntu/Debian Notes
+Installing `pyscard` require SWIG and libpcsclite:
+```shell
+# run below before installing dependencies with pip
+# tested on Ubuntu 20.04 (only)
+sudo apt-get install swig
+sudo apt-get install libpcsclite-dev
+```
+
+
 ## Windows Notes
 
 Installing `pyscard` may require SWIG:
