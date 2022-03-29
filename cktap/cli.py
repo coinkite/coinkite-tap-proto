@@ -542,7 +542,7 @@ def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
 
     addr = render_address(privkey, is_testnet)
 
-    wif = wif or render_wif(privkey, is_testnet)
+    wif = wif or render_wif(privkey, testnet=is_testnet)
 
     click.echo(f"Slot #{slot_num}:\n\n{addr}\n\n{wif}")
 
@@ -608,10 +608,9 @@ def show_balance(cvc):
     "[SC] Show the balance held on all slots"
     from cktap.sweep import UTXOList
 
-    cvc = cleanup_cvc(cvc, missing_ok=True)
     card = get_card(only_satscard=True)
+    cleanup_cvc(card, cvc, missing_ok=True)
 
-    rv = []
     click.echo('%-42s | Balance' % 'Address')
     click.echo(('-'*42) + '-+-------------')
 

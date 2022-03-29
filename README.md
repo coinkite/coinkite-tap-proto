@@ -2,6 +2,8 @@
 
 This Python library enables easy communication with **TAPSIGNER<sup>&trade;</sup>** and **SATSCARD<sup>&trade;</sup>**.
 
+**-==[Request card development samples [here](https://coinkite.cards/dev)]==-**
+
 Repository contents:
 
 1. The protocol specification
@@ -58,6 +60,16 @@ reflected in the installed version.
     - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
     - **NOT recommended:** ACS ACR122U. It can work, and is widely available, but is not reliable.
 - See `requirements.txt` file for python packages needed.
+
+
+## Ubuntu/Debian Notes
+Installing `pyscard` require SWIG and libpcsclite:
+```shell
+# run below before installing dependencies with pip
+# tested on Ubuntu 20.04 (only)
+sudo apt-get install swig
+sudo apt-get install libpcsclite-dev
+```
 
 
 ## Windows Notes
