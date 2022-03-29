@@ -542,7 +542,7 @@ def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
 
     addr = render_address(privkey, is_testnet)
 
-    wif = wif or render_wif(privkey, is_testnet)
+    wif = wif or render_wif(privkey, testnet=is_testnet)
 
     click.echo(f"Slot #{slot_num}:\n\n{addr}\n\n{wif}")
 
