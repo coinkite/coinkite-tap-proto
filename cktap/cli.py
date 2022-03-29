@@ -608,10 +608,9 @@ def show_balance(cvc):
     "[SC] Show the balance held on all slots"
     from cktap.sweep import UTXOList
 
-    cvc = cleanup_cvc(cvc, missing_ok=True)
     card = get_card(only_satscard=True)
+    cleanup_cvc(card, cvc, missing_ok=True)
 
-    rv = []
     click.echo('%-42s | Balance' % 'Address')
     click.echo(('-'*42) + '-+-------------')
 
