@@ -37,7 +37,7 @@ sys.excepthook=my_hook
 
 def fail(msg):
     # show message and stop
-    click.echo("FAILURE: " + msg, err=True)
+    click.echo(f"FAILURE: {msg}", err=True)
     sys.exit(1)
 
 def get_card(only_satscard=False, only_tapsigner=False):
