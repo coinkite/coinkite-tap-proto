@@ -472,7 +472,7 @@ def set_derivation(path, cvc, skip_checks):
     try:
         card.set_derivation(path, cvc)
     except ValueError as err:
-        fail(err)
+        fail(str(err))
 
     xp = card.get_xpub(cvc)
 
