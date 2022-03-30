@@ -234,12 +234,12 @@ Go for it: 'C' is the connected card, S=C.send ... S('status') SA('cmd', cvc, ..
 
 @main.command('chain')
 def get_block_chain():
-    '''[SC] Get which blockchain (Bitcoin/Testnet) is configured.
+    '''Get which blockchain (Bitcoin/Testnet) is configured.
 
     BTC=>Bitcoin  or  XTN=>Bitcoin Testnet
     '''
 
-    card = get_card(only_satscard=True)
+    card = get_card()
 
     click.echo('XTN' if card.is_testnet else 'BTC')
 
