@@ -720,12 +720,17 @@ def get_xpub(master, cvc, show_path, skip_checks):
     # TODO: make more useful, and be default cmd?
 
     card = get_card(only_tapsigner=True)
+    current_derivation_path = card.get_derivation()
     cvc = cleanup_cvc(card, cvc)
 
     if show_path and not master:
-        click.echo(card.get_derivation() + '\n')
+        click.echo(current_derivation_path + '\n')
 
-    xpub = card.get_xpub(cvc, master)
+    if master:
+        # temporary set the derivation to master
+        card.set_derivation(path="m", cvc=cvc)
+
+    xpub = card.get_xpub(cvc)
 
     if not skip_checks:
         # extra checking; robust against MitM (cost = 20ms)
@@ -735,6 +740,8 @@ def get_xpub(master, cvc, show_path, skip_checks):
         got_pubkey = card.get_pubkey(cvc)
         assert expect_pubkey == got_pubkey
 
+    # reset derivation path to current
+    card.set_derivation(path=current_derivation_path, cvc=cvc)
     click.echo(xpub)
 
 @main.command('json')
