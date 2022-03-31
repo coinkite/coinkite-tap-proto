@@ -207,34 +207,34 @@ Options:
   --pdb                    Prepare patient for surgery to remove bugs.
   --help                   Show this message and exit.
 
-
 Commands:
-  address   [SC] Show current deposit address
-  backup    [TS] Backup private key from card into AES-128-CTR encrypted...
-  balance   [SC] Show the balance held on all slots
-  certs     Check this card was made by Coinkite: Verifies a certificate...
-  chain     [SC] Get which blockchain (Bitcoin/Testnet) is configured.
-  change    [TS] Change the CVC code (PIN code)
-  check     Verify you have the spending code (CVC) correct.
-  core      [SC] Show JSON needed to import private keys into Bitcoin Core
-  debug     Start interactive (local) debug session.
-  derive    [TS] Change the subkey derivation path to use
-  dump      [SC] Show state of slot number indicated.
-  json      [TS] Dump wallet values in JSON format similar to Coldcard...
-  list      List all cards detected on any reader attached.
-  msg       Sign a short text message (TODO -- INCOMPLETE)
-  open      [SC] Get address and open associated local Bitcoin app to...
-  path      [TS] Show the subkey derivation path in effect
-  qr        [SC] Show current deposit address as a QR (or private key if...
-  setup     Setup with a fresh private key.
-  status    Show a few things about status of card
-  unlock    Clear login delay (takes 15 seconds)
-  unseal    [SC] Unseal current slot and reveal private key.
-  url       Get website URL used for NFC verification, and optionally...
-  usage     [SC] Show slots usage so far.
-  version   Get the version of the card's firmware installed (but not...
-  wif       [SC] Show WIF for last unsealed slot, or give slot number
-  xpub      [TS] Show the xpub in use
+  address  [SC] Show current deposit address
+  backup   [TS] Backup private key from card into AES-128-CTR encrypted file
+  balance  [SC] Show the balance held on all slots
+  certs    Check this card was made by Coinkite: Verifies a certificate...
+  chain    Get which blockchain (Bitcoin/Testnet) is configured.
+  change   [TS] Change the CVC code (PIN code)
+  check    Verify you have the spending code (CVC) correct.
+  core     [SC] Show JSON needed to import private keys into Bitcoin Core
+  debug    Start interactive (local) debug session.
+  derive   [TS] Change the subkey derivation path to use (shows xpub)
+  dump     [SC] Show state of slot number indicated.
+  json     [TS] Dump wallet values in JSON format similar to Coldcard...
+  list     List all cards detected on any reader attached.
+  msg      Sign a short text message (TODO -- INCOMPLETE)
+  open     [SC] Get address and open associated local Bitcoin app to...
+  path     [TS] Show the subkey derivation path in effect
+  qr       [SC] Show current deposit address as a QR (or private key if...
+  setup    Setup with a fresh private key.
+  status   Show a few things about status of card
+  unlock   Clear login delay (takes 15 seconds)
+  unseal   [SC] Unseal current slot and reveal private key.
+  url      Get website URL used for NFC verification, and optionally open it
+  usage    [SC] Show slots usage so far.
+  version  Get the version of the card's firmware installed (but not...
+  wif      [SC] Show WIF for last unsealed slot, or give slot number
+  xpub     [TS] Show the xpub in use
+
 
 % cktap list
 <CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
