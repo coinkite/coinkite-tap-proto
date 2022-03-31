@@ -14,6 +14,7 @@ from pprint import pformat
 from binascii import b2a_hex, a2b_hex
 from functools import wraps
 from getpass import getpass
+from copy import deepcopy
 
 from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
 from .utils import make_recoverable_sig, render_sats_value, path2str, pick_nonce
@@ -630,10 +631,10 @@ def show_balance(cvc):
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
 def export_to_core(cvc, pretty):
-    "[SC] Show JSON needed to import private keys into Bitcoin Core"
+    "[SC] Show JSON needed to import keys into Bitcoin Core"
 
     # see 
-    # - <https://bitcoincore.org/en/doc/0.21.0/rpc/wallet/importmulti/>
+    # - <https://bitcoincore.org/en/doc/0.21.0/rpc/wallet/importdescriptors/>
     # - <https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
@@ -642,46 +643,44 @@ def export_to_core(cvc, pretty):
 
     # CVC is optional, but they probably want it
     if not cvc:
-        click.echo("Warning: Without the code, can only watch addresses from this card.", err=1)
+        click.echo("Warning: Without the code, can only watch addresses from this card.\n", err=True)
     cvc = cleanup_cvc(card, cvc, missing_ok=True)
 
-    shared = dict(timestamp=PROJECT_EPOC_TIME_T, descr=[], internal=False)
-    if not cvc:
-        shared['watchonly'] = True
-
-    rv = []
+    shared = dict(
+        desc="",  # actual descriptor
+        timestamp=PROJECT_EPOC_TIME_T,
+        internal=False,
+        label=""  # label will be set to slot number
+    )
+    descriptor_list = []
     for slot in range(card.active_slot+1):
+        item = deepcopy(shared)
+        item["label"] = f"slot_{slot}"
         session_key, here = card.send_auth('dump', cvc, slot=slot)
 
-        if here.get('used', None) == False:
+        if here.get('used') is False:
             continue
 
         pk = None
         addr = None
-        if here.get('sealed', None) == True:
-            if cvc: continue
+        if here.get('sealed') is True:
             pubkey, addr = card.address(incl_pubkey=1)
 
         if 'privkey' in here:
             pk = xor_bytes(session_key, here['privkey'])
             addr = render_address(pk, card.is_testnet)
 
-        line = dict()
-        line.update(shared)
-
         if pk:
             w = render_descriptor(privkey=pk, testnet=card.is_testnet)
-        elif addr:
-            w = render_descriptor(address=addr)
-            line['pubkeys'] = [B2A(pubkey)]
         else:
-            continue
+            if addr is None:
+                addr = here["addr"]
+            w = render_descriptor(address=addr)
 
-        line['desc'] = [w]
-        rv.append(line)
+        item["desc"] = w
+        descriptor_list.append(item)
 
-    # TODO this doesn't work, but looks likely
-    click.echo('importmulti \'%s\'' % json.dumps(rv, indent=(2 if pretty else None)))
+    click.echo(f"importdescriptors '{json.dumps(descriptor_list, indent=(2 if pretty else None))}'")
 
     
 @main.command('status')
