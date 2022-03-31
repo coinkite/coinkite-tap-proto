@@ -37,7 +37,7 @@ sys.excepthook=my_hook
 
 def fail(msg):
     # show message and stop
-    click.echo(msg)
+    click.echo(f"FAILURE: {msg}", err=True)
     sys.exit(1)
 
 def get_card(only_satscard=False, only_tapsigner=False):
@@ -234,12 +234,12 @@ Go for it: 'C' is the connected card, S=C.send ... S('status') SA('cmd', cvc, ..
 
 @main.command('chain')
 def get_block_chain():
-    '''[SC] Get which blockchain (Bitcoin/Testnet) is configured.
+    '''Get which blockchain (Bitcoin/Testnet) is configured.
 
     BTC=>Bitcoin  or  XTN=>Bitcoin Testnet
     '''
 
-    card = get_card(only_satscard=True)
+    card = get_card()
 
     click.echo('XTN' if card.is_testnet else 'BTC')
 
@@ -469,7 +469,10 @@ def set_derivation(path, cvc, skip_checks):
     card = get_card(only_tapsigner=True)
 
     cvc = cleanup_cvc(card, cvc)
-    child_depth, cc, pub = card.set_derivation(path, cvc)
+    try:
+        card.set_derivation(path, cvc)
+    except ValueError as err:
+        fail(str(err))
 
     xp = card.get_xpub(cvc)
 
