@@ -729,8 +729,11 @@ def get_xpub(master, cvc, show_path, skip_checks):
 
     if not skip_checks:
         # extra checking; robust against MitM (cost = 20ms)
+        # - but get_pubkey() works on derived subkey only, not master
         from base58 import b58decode_check
-        expect_pubkey = b58decode_check(xpub)[-33:]
+
+        der_xpub = xpub if not master else card.get_xpub(cvc, False)
+        expect_pubkey = b58decode_check(der_xpub)[-33:]
 
         got_pubkey = card.get_pubkey(cvc)
         assert expect_pubkey == got_pubkey
