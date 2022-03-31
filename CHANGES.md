@@ -34,7 +34,7 @@ Building to release for PyPI:
 
 ## How to Release New Version
 
-1. Update `cktap/__init__.py` with new `__version__` string.
+1. Update `cktap/version.py` with new `__version__` string.
 2. `python3 setup.py sdist bdist_wheel`
   - Maybe delete old version from `./dist`?
 3. Tag source code with new version (at this point).
