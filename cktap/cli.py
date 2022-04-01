@@ -629,8 +629,10 @@ def show_balance(cvc):
 
 @main.command('core')
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
+@click.option('--sweep-only', is_flag=True, help="Only collect privkeys from unsealed slots (needs cvc)")
+@click.option('--slot', '-s', multiple=True, type=click.IntRange(min=0, max=9))
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
-def export_to_core(cvc, pretty):
+def export_to_core(cvc, pretty, sweep_only, slot):
     "[SC] Show JSON needed to import keys into Bitcoin Core"
 
     # see 
@@ -638,6 +640,9 @@ def export_to_core(cvc, pretty):
     # - <https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
+
+    if sweep_only and cvc is None:
+        fail("CVC has to be provided for '--sweep-only'")
 
     card = get_card(only_satscard=True)
 
@@ -653,17 +658,21 @@ def export_to_core(cvc, pretty):
         label=""  # label will be set to slot number
     )
     descriptor_list = []
-    for slot in range(card.active_slot+1):
+    for _slot in range(card.active_slot+1):
+        if _slot not in slot:
+            continue
         item = deepcopy(shared)
-        item["label"] = f"slot_{slot}"
-        session_key, here = card.send_auth('dump', cvc, slot=slot)
+        item["label"] = f"slot_{_slot}"
+        session_key, here = card.send_auth('dump', cvc, slot=_slot)
 
         if here.get('used') is False:
             continue
 
         pk = None
-        addr = None
+        addr = here.get("addr")
         if here.get('sealed') is True:
+            if sweep_only:
+                continue
             pubkey, addr = card.address(incl_pubkey=1)
 
         if 'privkey' in here:
@@ -673,8 +682,6 @@ def export_to_core(cvc, pretty):
         if pk:
             w = render_descriptor(privkey=pk, testnet=card.is_testnet)
         else:
-            if addr is None:
-                addr = here["addr"]
             w = render_descriptor(address=addr)
 
         item["desc"] = w
