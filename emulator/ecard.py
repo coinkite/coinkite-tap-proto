@@ -914,12 +914,11 @@ def emulate_card(pipe, factory=False, tapsigner=False):
     '''
     card = CardState()
 
-
+    card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
+    card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET,
+                        aes_key=FIXED_AES_KEY,
+                        url=NDEF_URL(tapsigner), tapsigner=tapsigner)
     if not factory:
-        card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
-        card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET,
-                            aes_key=FIXED_AES_KEY,
-                            url=NDEF_URL(tapsigner), tapsigner=tapsigner)
         card.cmd_new(chain_code=prandom(32), slot=0)
 
     print(card)
