@@ -659,7 +659,7 @@ def export_to_core(cvc, pretty, sweep_only, slot):
     )
     descriptor_list = []
     for _slot in range(card.active_slot+1):
-        if _slot not in slot:
+        if slot and _slot not in slot:
             continue
         item = deepcopy(shared)
         item["label"] = f"slot_{_slot}"
