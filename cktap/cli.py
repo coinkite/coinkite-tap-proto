@@ -629,10 +629,10 @@ def show_balance(cvc):
 
 @main.command('core')
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
-@click.option('--sweep-only', is_flag=True, help="Only collect privkeys from unsealed slots (needs cvc)")
+@click.option('--sealed-only', '-so', is_flag=True, help="Only dump sealed slots")
 @click.option('--slot', '-s', multiple=True, type=click.IntRange(min=0, max=9))
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
-def export_to_core(cvc, pretty, sweep_only, slot):
+def export_to_core(cvc, pretty, slot, sealed_only):
     "[SC] Show JSON needed to import keys into Bitcoin Core"
 
     # see 
@@ -640,9 +640,6 @@ def export_to_core(cvc, pretty, sweep_only, slot):
     # - <https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
-
-    if sweep_only and cvc is None:
-        fail("CVC has to be provided for '--sweep-only'")
 
     card = get_card(only_satscard=True)
 
@@ -668,10 +665,13 @@ def export_to_core(cvc, pretty, sweep_only, slot):
         if here.get('used') is False:
             continue
 
+        if sealed_only and here.get("sealed") is not True:
+            continue
+
         pk = None
         addr = here.get("addr")
         if here.get('sealed') is True:
-            if sweep_only:
+            if cvc:
                 continue
             pubkey, addr = card.address(incl_pubkey=1)
 
