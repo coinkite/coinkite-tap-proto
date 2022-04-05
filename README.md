@@ -26,13 +26,18 @@ Examples/Libraries in other languages will be added when available.
 
 ## Setup For Everyday Use
 
+First update `pip` to latest version and install wheel (otherwise legacy setup.py install will be used)
+```shell
+pip install -U pip wheel
+```
+
 Install `cktap`, our helpful command-line program, with just:
 
-    pip install 'coinkite-tap-proto[cli]'
+    pip install 'coinkite-tap-protocol[cli]'
 
 **OR**
 
-If you just want the Python library, use: `pip install coinkite-tap-proto`
+If you just want the Python library, use: `pip install coinkite-tap-protocol`
 
 
 ## Setup If You Might Change the Code
