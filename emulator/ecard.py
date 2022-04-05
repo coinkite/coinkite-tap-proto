@@ -906,19 +906,22 @@ def main(testnet, rng_seed, debug=False, quiet=False):
 
 @main.command('emulate')
 @click.option('--factory', '-f', is_flag=True, help='Has no key picked, needs factory setup')
+@click.option('--no-init', '-i', is_flag=True, help='Do not initialize the card')
 @click.option('--tapsigner', '--ts', '-t', is_flag=True, help='Be a TAPSIGNER')
 @click.option('--pipe', '-p', type=str, default='/tmp/ecard-pipe', help='Unix pipe for comms', metavar="PATH")
-def emulate_card(pipe, factory=False, tapsigner=False):
+def emulate_card(pipe, factory=False, tapsigner=False, no_init=False):
     '''
         Emulate a card which is fresh from factory. Has no key picked.
     '''
     card = CardState()
 
-    card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
-    card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET,
-                        aes_key=FIXED_AES_KEY,
-                        url=NDEF_URL(tapsigner), tapsigner=tapsigner)
     if not factory:
+        card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
+        card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET,
+                            aes_key=FIXED_AES_KEY,
+                            url=NDEF_URL(tapsigner), tapsigner=tapsigner)
+    if not no_init:
+        # initialize first card slot
         card.cmd_new(chain_code=prandom(32), slot=0)
 
     print(card)
