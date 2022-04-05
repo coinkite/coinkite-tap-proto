@@ -629,10 +629,9 @@ def show_balance(cvc):
 
 @main.command('core')
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
-@click.option('--sealed-only', '-so', is_flag=True, help="Only dump sealed slots")
 @click.option('--slot', '-s', multiple=True, type=click.IntRange(min=0, max=9))
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
-def export_to_core(cvc, pretty, slot, sealed_only):
+def export_to_core(cvc, pretty, slot):
     "[SC] Show JSON needed to import keys into Bitcoin Core"
 
     # see 
@@ -645,7 +644,7 @@ def export_to_core(cvc, pretty, slot, sealed_only):
 
     # CVC is optional, but they probably want it
     if not cvc:
-        click.echo("Warning: Without the code, can only watch addresses from this card.\n", err=True)
+        click.echo("NOTE: Without the code, can only watch addresses from this card.\n")
     cvc = cleanup_cvc(card, cvc, missing_ok=True)
 
     shared = dict(
@@ -663,9 +662,6 @@ def export_to_core(cvc, pretty, slot, sealed_only):
         session_key, here = card.send_auth('dump', cvc, slot=_slot)
 
         if here.get('used') is False:
-            continue
-
-        if sealed_only and here.get("sealed") is not True:
             continue
 
         pk = None
