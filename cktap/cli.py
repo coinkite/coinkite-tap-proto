@@ -30,7 +30,7 @@ global_opts = dict()
 _sys_excepthook = sys.excepthook
 def my_hook(ty, val, tb):
     if ty in { CardRuntimeError, RuntimeError }:
-        print("\n\nFATAL: %s" % val, file=sys.stderr)
+        print("FATAL: %s" % val, file=sys.stderr)
     else:
         return _sys_excepthook(ty, val, tb)
 sys.excepthook=my_hook
@@ -453,12 +453,8 @@ def check_cvc(cvc):
 def get_path():
     "[TS] Show the subkey derivation path in effect"
     card = get_card(only_tapsigner=True)
-
     path = card.get_derivation()
-    if path == None:
-        fail("NONE (no key picked yet)")
-    else:
-        print(path)
+    print(path)
     
 @main.command('derive')
 @click.argument('path', type=str, metavar="84h/0h/0h", required=True)

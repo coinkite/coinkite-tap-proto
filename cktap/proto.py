@@ -169,8 +169,7 @@ class CKTapCard:
         st = self.send('status')
         path = st.get('path', None)
         if path is None:
-            #raise RuntimeError("no private key picked yet, so no derivation")
-            return None
+            raise RuntimeError("No private key picked yet.")
         return path2str(path)
 
     def set_derivation(self, path, cvc):
