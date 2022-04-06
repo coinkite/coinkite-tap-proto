@@ -40,11 +40,6 @@ Command usage:
 ```
 
 ```shell
-# emulate a SATSCARD with no slot populated, certificate chain installed
-% ./ecard.py emulate --no-init
-```
-
-```shell
 # emulate a TAPSIGNER with no key picked yet
 % ./ecard.py emulate -t --no-init
 ```
