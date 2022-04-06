@@ -6,6 +6,7 @@ from .constants import *
 from .compat import hash160, sha256s
 from .compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair
 from .compat import CT_bip32_derive, CT_priv_to_pubkey
+from cktap.descriptors import descsum_create
 
 # show bytes as hex in a string
 B2A = lambda x: b2a_hex(x).decode('ascii')
@@ -209,16 +210,15 @@ def render_wif(privkey, bip_178=False, electrum=False, testnet=False):
 
     return ('p2wpkh:' + rv) if electrum else rv
 
-def render_descriptor(address=None, privkey=None, bip_178=False, electrum=False, testnet=False):
+def render_descriptor(address=None, privkey=None, bip_178=False, electrum=False, testnet=False, checksum=True):
     # Create a "descriptor" for Core to understand.
     assert address or privkey
     if privkey:
         rv = 'wpkh(%s)' % render_wif(privkey, testnet=testnet)
     else:
         rv = 'addr(%s)' % address
-
-    # TODO: add checksum
-
+    if checksum:
+        return descsum_create(rv)
     return rv
 
 def verify_master_pubkey(pub, sig, chain_code, my_nonce, card_nonce):

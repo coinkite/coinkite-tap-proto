@@ -299,8 +299,6 @@ bc1qu4vsv2jqgl0y30ehrs4d0dg23xazpgnxdwuqum
 % cktap wif -s 1
 Enter spending code (6 digits):
 p2wpkh:L16cgmhZJWD7fq3eDi3gL7Yko6WYixxZi4f5T3XxxDCF2HnZdHJa
-
-
 ```
 
 ### TAPSIGNER
@@ -327,3 +325,4 @@ Wrote 109 bytes to: backup-RUIXK-2022-02-16T0926.aes
 0000006d
 
 ```
+For more information about specific `cktap` commands check `docs/cli.md`
