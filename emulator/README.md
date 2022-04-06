@@ -41,6 +41,11 @@ Command usage:
 
 ```shell
 # emulate a TAPSIGNER with no key picked yet
+% ./ecard.py emulate -t --no-init
+```
+
+```shell
+# emulate a TAPSIGNER with key already picked
 % ./ecard.py emulate -t
 ```
 
