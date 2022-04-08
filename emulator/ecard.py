@@ -51,6 +51,7 @@ HARD = lambda x: (x | 0x8000_0000)
 all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
 none_hardened = lambda path: not any(bool(i & HARDENED) for i in path)
 DEFAULT_TAPSIGNER_PATH = [ HARD(84), HARD(0), HARD(0) ]
+DEFAULT_TAPSIGNER_PATH_TESTNET = [ HARD(84), HARD(1), HARD(0) ]
 
 def path2str(path):
     return '/'.join(['m'] + [ str(i & ~HARDENED)+('h' if i&HARDENED else '') for i in path])
@@ -324,7 +325,7 @@ class CardState:
 
         if self.is_tapsigner:
             if path is None:
-                path = DEFAULT_TAPSIGNER_PATH
+                path = DEFAULT_TAPSIGNER_PATH_TESTNET if TESTNET else DEFAULT_TAPSIGNER_PATH
             assert all_hardened(path), 'need hard path'
         else:
             path = [0]      # m/0
