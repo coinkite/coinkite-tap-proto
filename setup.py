@@ -19,24 +19,8 @@ requirements = [
     'bech32>=1.2.0',
     'base58>=2.1.1',
     'pyscard>=2.0.2',
+    'ecdsa>=0.13',
 ]
-
-if 1:
-    # We support wallycore or coincurve; both of which
-    # ultimately call libsecp256k1 
-    #
-    # - but I could not compile wallycore on windows
-    # - prolly because coincurve has 500+ lines of setup.py code
-    # - sorry I could not make this file detect O/S automatically?!
-    #
-    requirements.extend([
-        'coincurve>=15.0.1',
-        'bip32>=2.1',
-    ])
-else:
-    requirements.extend([
-        'wallycore>=0.8.2',
-    ])
 
 cli_requirements = [
     'click>=8.0.3',

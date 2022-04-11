@@ -8,10 +8,11 @@
 import sys, os, cbor2
 from binascii import b2a_hex, a2b_hex
 from hashlib import sha256
-from .utils import *
-from .constants import *
-from .exceptions import CardRuntimeError
-from .compat import hash160, sha256s
+from cktap.utils import *
+from cktap.constants import *
+from cktap.exceptions import CardRuntimeError
+from cktap.compat import hash160, sha256s
+from cktap.base58 import encode_base58_checksum
 
 class CKTapCard:
     #
@@ -201,7 +202,7 @@ class CKTapCard:
         assert self.is_tapsigner
         _, st = self.send_auth('xpub', cvc, master=master)
         xpub = st['xpub']
-        return base58.b58encode_check(xpub).decode('ascii')
+        return encode_base58_checksum(xpub)
 
     def get_pubkey(self, cvc):
         # TAPSIGNER only: Get the public key for current derived path

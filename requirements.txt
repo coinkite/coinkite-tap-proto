@@ -2,17 +2,8 @@
 
 cbor2>=5.4.1
 bech32>=1.2.0
-
 pyscard==2.0.2
-
-# supported, but not prefered
-#coincurve==15.0.1
-#bip32==2.1
-
-# currently prefered crypto API
-wallycore==0.8.4
-
-base58==2.1.1
+ecdsa>=0.13
 
 #
 # If only using for library, you won't need ones below here

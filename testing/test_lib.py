@@ -39,6 +39,11 @@ def test_wrap():
     got = CT_bip32_derive(b'c'*32, b'\x02'*33, [1,2,3])
     assert got == b'\x03fo\xbb\xee\xc7\xb9hP\xa0\xa7\xff\xb7\x0c]\xf7\xec\xc4l\x9a\x89\x92\xd21\xcb\xb1{\x7f\xd9\xea\xff\xcb\x88'
 
+    pk = b'c'*32
+    pub = b'\x02'*33
+    ss = CT_ecdh(pub, pk)
+    assert ss == b'\x10L^\xf4iY\x01<\xc5*.jZ\xcc&\xb97\xf7\xcf\x91\x0f\r\x80O{\xf2x\xef\x1e\xb2\xd9\xed'
+
     
 def test_addr(dev):
     # core functions

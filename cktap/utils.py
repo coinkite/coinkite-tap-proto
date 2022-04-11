@@ -257,7 +257,7 @@ def make_recoverable_sig(digest, sig, addr=None, expect_pubkey=None, is_testnet=
             pubkey = CT_sig_to_pubkey(digest, rec_sig)
         except ValueError:
             if rec_id >= 2: continue        # because crypto I don't understand
-    
+
         if expect_pubkey:
             if expect_pubkey != pubkey:
                 continue

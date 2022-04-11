@@ -9,19 +9,19 @@
 # That will create the command "cktap" in your path.
 #
 #
-import click, sys, os, pdb, time, json, datetime
-from pprint import pformat
-from binascii import b2a_hex, a2b_hex
+import click, sys, os, pdb, time, json
+from binascii import b2a_hex
 from functools import wraps
 from getpass import getpass
 from copy import deepcopy
 
-from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
-from .utils import make_recoverable_sig, render_sats_value, path2str, pick_nonce
-from .compat import sha256s
-from .constants import *
-from .exceptions import CardRuntimeError
-from .transport import CKTapCard, find_cards
+from cktap.utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
+from cktap.utils import make_recoverable_sig, path2str, pick_nonce
+from cktap.compat import sha256s
+from cktap.constants import *
+from cktap.exceptions import CardRuntimeError
+from cktap.transport import find_cards
+from cktap.base58 import decode_base58_checksum
 
 # dict of options that apply to all commands
 global global_opts
@@ -475,8 +475,7 @@ def set_derivation(path, cvc, skip_checks):
 
     if not skip_checks:
         # extra checking; robust against MitM (cost = 20ms)
-        from base58 import b58decode_check
-        expect_pubkey = b58decode_check(xp)[-33:]
+        expect_pubkey = decode_base58_checksum(xp)[-33:]
 
         got_pubkey = card.get_pubkey(cvc)
         assert expect_pubkey == got_pubkey
@@ -728,10 +727,8 @@ def get_xpub(master, cvc, show_path, skip_checks):
     if not skip_checks:
         # extra checking; robust against MitM (cost = 20ms)
         # - but get_pubkey() works on derived subkey only, not master
-        from base58 import b58decode_check
-
         der_xpub = xpub if not master else card.get_xpub(cvc, False)
-        expect_pubkey = b58decode_check(der_xpub)[-33:]
+        expect_pubkey = decode_base58_checksum(der_xpub)[-33:]
 
         got_pubkey = card.get_pubkey(cvc)
         assert expect_pubkey == got_pubkey

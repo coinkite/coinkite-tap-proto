@@ -63,6 +63,8 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     raise NotImplementedError
 
 
+
+
 try:
     # Wally Core <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
     import wallycore
@@ -72,7 +74,6 @@ try:
     from .wrap_wally import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
 
 except ImportError:
-
     try:
         # Coincurve <https://ofek.dev/coincurve/api/>
         import coincurve
@@ -81,6 +82,11 @@ except ImportError:
         from .wrap_coincurve import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
 
     except ImportError:
-        raise RuntimeError("need a crypto library")
+        # python ECDSA
+        try:
+            from .wrap_ecdsa import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+            from .wrap_ecdsa import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+        except ImportError:
+            raise RuntimeError("need a crypto library")
 
 # EOF
