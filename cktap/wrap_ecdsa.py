@@ -334,9 +334,10 @@ def CT_sign(privkey: bytes, msg_digest: bytes, recoverable: bool = False) -> byt
     if recoverable:
         return ecdsa_sign(msg_digest, privkey)
     else:
-        sk = ecdsa.SigningKey.from_string(privkey, curve=ecdsa.SECP256k1)
-        sig = sk.sign_digest_deterministic(msg_digest)
-        return sig
+        sig = ecdsa_sign(msg_digest, privkey)
+        assert len(sig) == 65
+        # remove header byte
+        return sig[1:]
 
 
 def CT_bip32_derive(chain_code: bytes, master_priv_pub: bytes, subkey_path: List[int]) -> bytes:
