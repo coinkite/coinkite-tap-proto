@@ -8,6 +8,7 @@
 #
 from coincurve.ecdsa import deserialize_compact, serialize_compact, der_to_cdata, cdata_to_der
 from coincurve import PrivateKey, PublicKey
+from cktap.bip32 import PrvKeyNode, PubKeyNode
 
 def CT_sig_verify(pub, msg_digest, sig):
     assert len(sig) == 64
@@ -53,18 +54,16 @@ def CT_priv_to_pubkey(priv):
     return pk.public_key.format()
 
 def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
-    from bip32 import BIP32
-
     if len(master_priv_pub) == 32:
         # it's actually a private key (from unsealed slot)
-        master = BIP32(chaincode=chain_code, privkey=master_priv_pub)
+        master = PrvKeyNode(chain_code=chain_code, key=master_priv_pub)
     else:
         # load 'm'
-        master = BIP32(chaincode=chain_code, pubkey=master_priv_pub)
+        master = PubKeyNode(chain_code=chain_code, key=master_priv_pub)
 
     # derive m/0
-    _, pubkey = master.get_extended_pubkey_from_path(subkey_path)
+    node = master.get_extended_pubkey_from_path(subkey_path)
 
-    return pubkey
+    return node.public_key.sec()
 
 # EOF

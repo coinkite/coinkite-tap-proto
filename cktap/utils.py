@@ -1,12 +1,13 @@
 # (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
-import os, base58, bech32, struct
+import os, bech32, struct
 from binascii import b2a_hex, a2b_hex
-from .constants import *
-from .compat import hash160, sha256s
-from .compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair
-from .compat import CT_bip32_derive, CT_priv_to_pubkey
+from cktap.constants import *
+from cktap.compat import hash160, sha256s
+from cktap.compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair
+from cktap.compat import CT_bip32_derive, CT_priv_to_pubkey
 from cktap.descriptors import descsum_create
+from cktap.base58 import encode_base58_checksum
 
 # show bytes as hex in a string
 B2A = lambda x: b2a_hex(x).decode('ascii')
@@ -206,7 +207,7 @@ def render_wif(privkey, bip_178=False, electrum=False, testnet=False):
     prefix = bytes([0x80 if not testnet else 0xef])
     suffix = bytes([0x01 if not bip_178 else 0x11])
 
-    rv = base58.b58encode_check(prefix + privkey + suffix).decode('ascii')
+    rv = encode_base58_checksum(prefix + privkey + suffix)
 
     return ('p2wpkh:' + rv) if electrum else rv
 
