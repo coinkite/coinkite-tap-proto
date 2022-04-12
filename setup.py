@@ -6,6 +6,14 @@
 #
 #   pip install --editable .
 #
+# with cli dependencies
+#
+#   pip install --editable '.[cli]'
+#
+# with test dependencies
+#
+#   pip install --editable '.[test]'
+#
 # On Windows, this can be useful:
 #
 #   pip install -U --force-reinstall coinkite_tap_protocol-*.whl[cli]
@@ -17,16 +25,22 @@ from setuptools import setup
 requirements = [
     'cbor2>=5.4.1',
     'bech32>=1.2.0',
-    'base58>=2.1.1',
     'pyscard>=2.0.2',
     'ecdsa>=0.13',
 ]
+
+requests_socks = 'requests[socks]>=2.26.0'
 
 cli_requirements = [
     'click>=8.0.3',
     'pyqrcode>=1.2.1',
     'pypng>=0.0.21',
-    'requests[socks]>=2.26.0',
+    requests_socks,
+]
+
+test_requirements = [
+    'pytest',
+    requests_socks,
 ]
 
 with open("README.md", "r") as fh:
@@ -42,6 +56,7 @@ setup(
     install_requires=requirements,
     extras_require={
         'cli': cli_requirements,
+        'test': test_requirements,
     },
     url='https://github.com/coinkite/coinkite-tap-proto',
     author='Coinkite Inc.',
