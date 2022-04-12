@@ -215,7 +215,7 @@ def ecdsa_raw_sign(msghash, priv):
     r, y = fast_multiply(G, k)
     s = inv(k, N) * (z + r * decode_base256(priv)) % N
 
-    is_compressed = True
+    is_compressed = True  # TODO do we plan to support uncompressed?
     is_high_s = s * 2 > N
 
     v = 27 + ((y % 2) ^ (1 if is_high_s else 0))

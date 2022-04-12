@@ -63,30 +63,33 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     raise NotImplementedError
 
 
-
-
 try:
-    # Wally Core <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
-    import wallycore
-
-    from .wrap_wally import hash160, sha256s
-    from .wrap_wally import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
-    from .wrap_wally import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+    from cktap.wrap_pysecp import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+    from cktap.wrap_pysecp import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
 
 except ImportError:
     try:
-        # Coincurve <https://ofek.dev/coincurve/api/>
-        import coincurve
+        # Wally Core <https://wally.readthedocs.io/en/release_0.8.3/crypto/>
+        import wallycore
 
-        from .wrap_coincurve import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
-        from .wrap_coincurve import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+        from cktap.wrap_wally import hash160, sha256s
+        from cktap.wrap_wally import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+        from cktap.wrap_wally import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
 
     except ImportError:
-        # python ECDSA
         try:
-            from .wrap_ecdsa import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
-            from .wrap_ecdsa import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+            # Coincurve <https://ofek.dev/coincurve/api/>
+            import coincurve
+
+            from cktap.wrap_coincurve import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+            from cktap.wrap_coincurve import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+
         except ImportError:
-            raise RuntimeError("need a crypto library")
+            # python ECDSA
+            try:
+                from cktap.wrap_ecdsa import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
+                from cktap.wrap_ecdsa import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
+            except ImportError:
+                raise RuntimeError("need a crypto library")
 
 # EOF

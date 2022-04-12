@@ -122,6 +122,37 @@ def bip32_wally(chain_code, priv_or_pub, path):
     return CT_bip32_derive(chain_code, priv_or_pub, path)
 
 
+def pubkey_sign_verify_pysecp(sk, msg_digest):
+    try:
+        from cktap.wrap_pysecp import CT_sign, CT_priv_to_pubkey, CT_sig_verify
+    except ImportError:
+        return None, None
+    pk = CT_priv_to_pubkey(sk)
+    sig = CT_sign(sk, msg_digest, recoverable=False)
+    ok = CT_sig_verify(pk, msg_digest, sig)
+    assert ok
+    return pk, sig
+
+
+def ecdh_pysecp(sk, pk):
+    try:
+        from cktap.wrap_pysecp import CT_ecdh
+    except ImportError:
+        return None
+    return CT_ecdh(pk, sk)
+
+
+def rec_sigs_pysecp(sk, msg_digest):
+    try:
+        from cktap.wrap_pysecp import CT_sign, CT_sig_to_pubkey
+    except ImportError:
+        return None, None
+    rec_sig = CT_sign(sk, msg_digest, recoverable=True)
+    assert len(rec_sig) == 65
+    recovered_pk = CT_sig_to_pubkey(msg_digest, rec_sig)
+    return rec_sig, recovered_pk
+
+
 def pubkey_sign_verify_coincurve(sk, msg_digest):
     try:
         from cktap.wrap_coincurve import CT_sign, CT_priv_to_pubkey, CT_sig_verify
@@ -144,7 +175,7 @@ def ecdh_coincurve(sk, pk):
 
 def rec_sigs_coincurve(sk, msg_digest):
     try:
-        from cktap.wrap_wally import CT_sign, CT_sig_to_pubkey
+        from cktap.wrap_coincurve import CT_sign, CT_sig_to_pubkey
     except ImportError:
         return None, None
     rec_sig = CT_sign(sk, msg_digest, recoverable=True)
@@ -168,7 +199,7 @@ def pubkey_sign_verify_ecdsa(sk, msg_digest):
 
 def ecdh_ecdsa(sk, pk):
     try:
-        from cktap.wrap_wally import CT_ecdh
+        from cktap.wrap_ecdsa import CT_ecdh
     except ImportError:
         return None
     return CT_ecdh(pk, sk)
@@ -176,7 +207,7 @@ def ecdh_ecdsa(sk, pk):
 
 def rec_sigs_ecdsa(sk, msg_digest):
     try:
-        from cktap.wrap_wally import CT_sign, CT_sig_to_pubkey
+        from cktap.wrap_ecdsa import CT_sign, CT_sig_to_pubkey
     except ImportError:
         return None, None
     rec_sig = CT_sign(sk, msg_digest, recoverable=True)
@@ -187,7 +218,7 @@ def rec_sigs_ecdsa(sk, msg_digest):
 
 def bip32_ecdsa(chain_code, priv_or_pub, path):
     try:
-        from cktap.wrap_wally import CT_bip32_derive
+        from cktap.wrap_ecdsa import CT_bip32_derive
     except ImportError:
         return None
     return CT_bip32_derive(chain_code, priv_or_pub, path)
@@ -198,14 +229,10 @@ def test_pubkey_sign_verify():
         pk_cc, sig_cc = pubkey_sign_verify_coincurve(sk, msg_digest)
         pk_wally, sig_wally = pubkey_sign_verify_wally(sk, msg_digest)
         pk_ecdsa, sig_ecdsa = pubkey_sign_verify_ecdsa(sk, msg_digest)
-        all_sigs = [sig for sig in [sig_cc, sig_ecdsa, sig_wally] if sig is not None]  # filter out None results of unavailable libs
-        all_pks = [pk for pk in [pk_cc, pk_ecdsa, pk_wally] if pk is not None]  # filter out None results of unavailable libs
-        rr = all([sig == expected_sig for sig in all_sigs])
-        if rr is False:
-            import pdb;pdb.set_trace()
-            x = 465465
-            hh = 465456
-        assert rr
+        pk_pysecp, sig_pysecp = pubkey_sign_verify_pysecp(sk, msg_digest)
+        all_sigs = [sig for sig in [sig_cc, sig_ecdsa, sig_wally, sig_pysecp] if sig is not None]  # filter out None results of unavailable libs
+        all_pks = [pk for pk in [pk_cc, pk_ecdsa, pk_wally, pk_pysecp] if pk is not None]  # filter out None results of unavailable libs
+        assert all([sig == expected_sig for sig in all_sigs])
         assert all([pk == expected_pk for pk in all_pks])
 
 
@@ -215,7 +242,8 @@ def test_ecdh():
         ss_wally = ecdh_wally(sk, pk)
         ss_cc = ecdh_coincurve(sk, pk)
         ss_ecdsa = ecdh_ecdsa(sk, pk)
-        all_ss = [ss for ss in [ss_cc, ss_ecdsa, ss_wally] if ss is not None]  # filter out None results of unavailable libs
+        ss_pysecp = ecdh_pysecp(sk, pk)
+        all_ss = [ss for ss in [ss_cc, ss_ecdsa, ss_wally, ss_pysecp] if ss is not None]  # filter out None results of unavailable libs
         assert all([ss == expected_ss for ss in all_ss])
 
 
@@ -224,7 +252,8 @@ def test_rec_sigs():
         rs_wally, rpk_wally = rec_sigs_wally(sk, msg_digest)
         rs_cc, rpk_cc = rec_sigs_coincurve(sk, msg_digest)
         rs_ecdsa, rpk_ecdsa = rec_sigs_ecdsa(sk, msg_digest)
-        all_rpks = [rpk for rpk in [rpk_wally, rpk_ecdsa, rpk_cc] if rpk is not None]  # filter out None results of unavailable libs
-        all_rs = [rs for rs in [rs_wally, rs_ecdsa, rs_cc] if rs is not None]  # filter out None results of unavailable libs
+        rs_pysecp, rpk_pysecp = rec_sigs_pysecp(sk, msg_digest)
+        all_rpks = [rpk for rpk in [rpk_wally, rpk_ecdsa, rpk_cc, rpk_pysecp] if rpk is not None]  # filter out None results of unavailable libs
+        all_rs = [rs for rs in [rs_wally, rs_ecdsa, rs_cc, rs_pysecp] if rs is not None]  # filter out None results of unavailable libs
         assert all([rpk == expected_pk for rpk in all_rpks])
         assert all([rs == expected_rs for rs in all_rs])
