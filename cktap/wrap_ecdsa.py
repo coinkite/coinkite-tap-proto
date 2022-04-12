@@ -312,15 +312,16 @@ def CT_sig_to_pubkey(msg_digest: bytes, sig: bytes) -> bytes:
 
 def CT_ecdh(his_pubkey: bytes, my_privkey: bytes) -> bytes:
     # returns a 32-byte session key, which is sha256s(compressed point)
-    ecdh = ecdsa.ECDH(curve=ecdsa.SECP256k1)
-    ecdh.load_private_key_bytes(my_privkey)
-    ecdh.load_received_public_key_bytes(his_pubkey)
-    secret_bytes = ecdh.generate_sharedsecret_bytes()
-    # doing it again as we need to know resulting key parity --> fuck python-ecdsa
+    pk_other = ecdsa.VerifyingKey.from_string(his_pubkey, curve=ecdsa.SECP256k1)
+    sk_our = ecdsa.SigningKey.from_string(my_privkey, curve=ecdsa.SECP256k1)
     result = (
-        ecdh.public_key.pubkey.point
-        * ecdh.private_key.privkey.secret_multiplier
+        pk_other.pubkey.point
+        * sk_our.privkey.secret_multiplier
     )
+    secret_bytes = ecdsa.util.number_to_string(
+        result.x(), sk_our.curve.curve.p()
+    )
+    assert result != ecdsa.ellipticcurve.INFINITY, "Invalid shared secret (INFINITY)."
     if result.y() % 2 == 0:
         prefix = b"\x02"
     else:
