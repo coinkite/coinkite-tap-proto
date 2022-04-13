@@ -46,11 +46,12 @@ test_requirements = [
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-from cktap.version import __version__
+with open("cktap/version.txt") as f:
+    version = f.read().strip()
 
 setup(
     name='coinkite-tap-protocol',
-    version=__version__,
+    version=version,
     packages=[ 'cktap' ],
     python_requires='>3.6.0',
     install_requires=requirements,
