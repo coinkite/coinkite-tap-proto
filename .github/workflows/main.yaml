@@ -33,15 +33,28 @@ jobs:
             brew services start tor
           fi
           cd ${{ github.workspace }}
-          pip install --editable '.[test]'
-      - name: Install emulator dependencies and run it
+          pip install --editable '.[test,cli]'  # cli for slot unsealing
+      - name: Install emulator dependencies and run emulated tapsigner
         run: |
           cd ${{ github.workspace }}
           cd emulator
           pip install -r requirements.txt
           pip install dataclasses  # python36
           ./ecard.py --testnet emulate -t &
-      - name: Run unittests
+      - name: Run lib unittests and tapsigner unittests
         run: |
-          pytest --cvc 123456 -vvv
+          pytest -m "not satscard" --cvc 123456 -vvv
+      - name: Kill tapsigner emulator process
+        run: |
+          pgrep -f ecard.py | xargs kill -9
+      - name: Run emulated satscard
+        run: |
+          cd ${{ github.workspace }}
+          cd emulator
+          ./ecard.py --testnet emulate &
+          # unseal one slot
+          cktap unseal 123456
+      - name: Run satscard unittests
+        run: |
+          pytest -m "satscard" --cvc 123456 -vvv
       - run: echo "This job's status is ${{ job.status }}."

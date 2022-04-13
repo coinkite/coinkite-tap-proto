@@ -104,7 +104,8 @@ def test_status_fields(dev):
             pass
 
     assert len(st) == 0, f'Extra fields: {st}'
-    
+
+@pytest.mark.satscard
 def test_dump_unauth(dev):
     # all slots can be dumped w/o CVC but limited info
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -130,6 +131,7 @@ def test_dump_unauth(dev):
 
         assert not d.keys(), repr(d)
 
+@pytest.mark.satscard
 def test_dump_unsealed(dev, known_cvc):
     # dump details of all unsealed slots 
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -168,6 +170,7 @@ def test_dump_unsealed(dev, known_cvc):
         assert actual == d['pubkey']
         assert render_address(actual, st.get('testnet', False)) == derived_addr
 
+@pytest.mark.satscard
 def test_get_privkey(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     
@@ -184,12 +187,14 @@ def test_get_privkey(dev, known_cvc):
     if not count:
         raise pytest.xfail("no unsealed slots")
 
+@pytest.mark.satscard
 def test_get_usage_1(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot, known_cvc)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
+@pytest.mark.satscard
 def test_get_usage_2(dev):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
