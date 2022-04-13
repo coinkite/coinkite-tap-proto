@@ -47,8 +47,12 @@ If you just want the Python library, use: `pip install coinkite-tap-protocol`
 3. Run:
 
 ```
-pip install -r requirements.txt
+# only library
+pip install --editable .
+# or with cktap cmdline utility
 pip install --editable '.[cli]'
+# for testing purposes
+pip install --editable '.[test]'
 ```
 
 This installs `cktap` and any changes you make will be immediately

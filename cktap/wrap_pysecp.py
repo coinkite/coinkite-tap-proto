@@ -43,7 +43,7 @@ def CT_pick_keypair() -> Tuple[bytes, bytes]:
         except:
             continue
     else:
-        raise RuntimeError("stuck rng?")
+        raise RuntimeError("PRNG issues?")
 
 
 def CT_priv_to_pubkey(pk: bytes) -> bytes:
@@ -99,5 +99,5 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     # derive m/0
     node = master.get_extended_pubkey_from_path(subkey_path)
 
-    return node.public_key.sec()
+    return node.sec()
 

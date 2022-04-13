@@ -3,7 +3,6 @@
 cbor2>=5.4.1
 bech32>=1.2.0
 pyscard==2.0.2
-ecdsa>=0.13
 
 #
 # If only using for library, you won't need ones below here

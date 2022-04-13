@@ -26,7 +26,6 @@ requirements = [
     'cbor2>=5.4.1',
     'bech32>=1.2.0',
     'pyscard>=2.0.2',
-    'ecdsa>=0.13',
 ]
 
 requests_socks = 'requests[socks]>=2.26.0'
@@ -42,6 +41,12 @@ test_requirements = [
     'pytest',
     requests_socks,
 ]
+# only for developers playing with crypto libraries - cross library comparisons
+test_plus_requirements = [
+    'coincurve>=15.0.1',
+    'wallycore>=0.8.2',
+    'python-secp256k1@git+https://github.com/scgbckbone/python-secp256k1.git',
+] + test_requirements
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -58,6 +63,7 @@ setup(
     extras_require={
         'cli': cli_requirements,
         'test': test_requirements,
+        'test_plus': test_plus_requirements,
     },
     url='https://github.com/coinkite/coinkite-tap-proto',
     author='Coinkite Inc.',

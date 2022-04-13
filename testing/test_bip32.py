@@ -2,7 +2,8 @@ import pytest
 from io import BytesIO
 
 from cktap.base58 import decode_base58_checksum
-from cktap.bip32 import PrvKeyNode, PubKeyNode, PrivateKey, PublicKey
+from cktap.bip32 import PrvKeyNode, PubKeyNode, int_to_big_endian
+from cktap._ecdsa import privkey_to_pubkey, decode_pubkey, encode_pubkey
 
 
 
@@ -11,7 +12,8 @@ def test_parse():
     xpriv = "xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt"
     pub_node = PubKeyNode.parse(s=xpub)
     assert pub_node.extended_public_key() == xpub
-    assert PrvKeyNode.parse(s=xpriv).extended_private_key() == xpriv
+    prv_node = PrvKeyNode.parse(s=xpriv)
+    assert prv_node.extended_private_key() == xpriv
 
 def test_parse_incorrect_type():
     xpriv = "xprv9s21ZrQH143K3YFDmG48xQj4BKHUn15if4xsQiMwSKX8bZ6YruYK6mV6oM5Tbodv1pLF7GMdPGaTcZBno3ZejMHbVVvymhsS5GcYC4hSKag"
@@ -283,9 +285,7 @@ def test_sec():
         )
     ]
     for secret, uncompressed, compressed in data:
-        pubkey = PrivateKey(sec_exp=secret).K
-        assert pubkey.sec(compressed=False) == bytes.fromhex(uncompressed)
-        assert pubkey.point == PublicKey.parse(bytes.fromhex(uncompressed)).point
-        assert pubkey.sec(compressed=True) == bytes.fromhex(compressed)
-        assert pubkey.point == PublicKey.parse(bytes.fromhex(compressed)).point
-
+        pubkey = privkey_to_pubkey(int_to_big_endian(secret, 32))
+        point = decode_pubkey(pubkey, "bin_compressed")
+        assert encode_pubkey(point, "bin") == bytes.fromhex(uncompressed)
+        assert encode_pubkey(point, "bin_compressed") == bytes.fromhex(compressed) == pubkey

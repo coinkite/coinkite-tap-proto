@@ -64,6 +64,6 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     # derive m/0
     node = master.get_extended_pubkey_from_path(subkey_path)
 
-    return node.public_key.sec()
+    return node.sec()
 
 # EOF

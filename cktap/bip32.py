@@ -3,27 +3,17 @@
 #
 
 import hmac
-import ecdsa
 import hashlib
 from io import BytesIO
-from typing import Union, List
+from typing import Union, List, Tuple
 
 from cktap.base58 import decode_base58_checksum, encode_base58_checksum
+from cktap._ecdsa import G, N, isinf, fast_multiply, fast_add, privkey_to_pubkey, encode_pubkey, decode_pubkey, decode_privkey
 
 
 HARDENED = 2 ** 31
 
 Prv_or_PubKeyNode = Union["PrvKeyNode", "PubKeyNode"]
-
-SECP256k1 = ecdsa.curves.SECP256k1
-CURVE_GEN = ecdsa.ecdsa.generator_secp256k1
-CURVE_ORDER = CURVE_GEN.order()
-FIELD_ORDER = SECP256k1.curve.p()
-INFINITY = ecdsa.ellipticcurve.INFINITY
-Point_or_PointJacobi = Union[
-    ecdsa.ellipticcurve.Point,
-    ecdsa.ellipticcurve.PointJacobi
-]
 
 
 def hash160(s: bytes) -> bytes:
@@ -55,101 +45,6 @@ def int_to_big_endian(n: int, length: int) -> bytes:
     :return: big endian
     """
     return n.to_bytes(length, "big")
-
-
-class PrivateKey(object):
-
-    __slots__ = (
-        "sec_exp",
-        "k",
-        "K"
-    )
-
-    def __init__(self, sec_exp: int):
-        """
-        Initializes private key from secret exponent.
-
-        :param sec_exp: secret
-        """
-        self.sec_exp = sec_exp
-        self.k = ecdsa.SigningKey.from_secret_exponent(
-            secexp=sec_exp,
-            curve=SECP256k1
-        )
-        self.K = PublicKey(key=self.k.get_verifying_key())
-
-    def __bytes__(self) -> bytes:
-        """
-        Encodes private key into corresponding byte sequence.
-
-        :return: byte representation of PrivateKey object
-        """
-        return self.k.to_string()
-
-    @classmethod
-    def parse(cls, key_bytes: bytes) -> "PrivateKey":
-        """
-        Initializes private key from byte sequence.
-
-        :param key_bytes: byte representation of private key
-        :return: private key
-        """
-        return cls(sec_exp=big_endian_to_int(key_bytes))
-
-
-class PublicKey(object):
-
-    __slots__ = (
-        "K"
-    )
-
-    def __init__(self, key: ecdsa.VerifyingKey):
-        """
-        Initializes PublicKey object from ecdsa verifying key
-
-        :param key: ecdsa verifying key
-        """
-        self.K = key
-
-    @property
-    def point(self) -> ecdsa.ellipticcurve.Point:
-        """
-        Point on curve (x and y coordinates).
-
-        :return: point on curve
-        """
-        return self.K.pubkey.point
-
-    def sec(self, compressed: bool = True) -> bytes:
-        """
-        Encodes public key to SEC format.
-
-        :param compressed: whether to use compressed format (default=True)
-        :return: SEC encoded public key
-        """
-        if compressed:
-            return self.K.to_string(encoding="compressed")
-        return self.K.to_string(encoding="uncompressed")
-
-    @classmethod
-    def parse(cls, key_bytes: bytes) -> "PublicKey":
-        """
-        Initializes public key from byte sequence.
-
-        :param key_bytes: byte representation of public key
-        :return: public key
-        """
-        return cls(ecdsa.VerifyingKey.from_string(key_bytes, curve=SECP256k1))
-
-    @classmethod
-    def from_point(cls, point: Point_or_PointJacobi) -> "PublicKey":
-        """
-        Initializes public key from point on elliptic curve.
-
-        :param point: point on elliptic curve
-        :return: public key
-        """
-        return cls(ecdsa.VerifyingKey.from_public_point(point, curve=SECP256k1))
 
 
 class InvalidKeyError(Exception):
@@ -217,15 +112,6 @@ class PubKeyNode(object):
             self.parent_fingerprint == other.parent_fingerprint
 
     @property
-    def public_key(self) -> PublicKey:
-        """
-        Public key node's public key.
-
-        :return: public key of public key node
-        """
-        return PublicKey.parse(key_bytes=self.key)
-
-    @property
     def parent_fingerprint(self) -> bytes:
         """
         Gets parent fingerprint.
@@ -277,13 +163,26 @@ class PubKeyNode(object):
         """Check whether current key node is root (has no parent)."""
         return self.parent is None
 
+    @property
+    def public_key(self) -> Tuple[int, int]:
+        """
+        Public key node's public key.
+
+        :return: public key of public key node
+        """
+        assert len(self.key) == 33
+        return decode_pubkey(self.key, "bin_compressed")
+
+    def sec(self):
+        return encode_pubkey(self.public_key, "bin_compressed")
+
     def fingerprint(self) -> bytes:
         """
         Gets current node fingerprint.
 
         :return: first four bytes of SHA256(RIPEMD160(public key))
         """
-        return hash160(self.public_key.sec())[:4]
+        return hash160(self.sec())[:4]
 
     @classmethod
     def parse(cls, s: Union[str, bytes, BytesIO],
@@ -367,7 +266,7 @@ class PubKeyNode(object):
         """
         return self._serialize(
             version=self.pub_version if version is None else version,
-            key=self.public_key.sec()
+            key=self.sec()
         )
 
     def extended_public_key(self, version: int = None) -> str:
@@ -405,18 +304,18 @@ class PubKeyNode(object):
             raise RuntimeError("failure: hardened child for public ckd")
         I = hmac.new(key=self.chain_code, msg=self.key + int_to_big_endian(index, 4), digestmod=hashlib.sha512).digest()
         IL, IR = I[:32], I[32:]
-        if big_endian_to_int(IL) >= CURVE_ORDER:
+        if big_endian_to_int(IL) >= N:
             InvalidKeyError(
                 "public key {} is greater/equal to curve order".format(
                     big_endian_to_int(IL)
                 )
             )
-        point = PrivateKey.parse(IL).K.point + self.public_key.point
-        if point == INFINITY:
+        point = fast_add(fast_multiply(G, decode_privkey(IL, "bin_compressed")), self.public_key)
+        if isinf(point):
             raise InvalidKeyError("public key is a point at infinity")
-        Ki = PublicKey.from_point(point=point)
+        Ki = encode_pubkey(point, "bin_compressed")
         child = self.__class__(
-            key=Ki.sec(),
+            key=Ki,
             chain_code=IR,
             index=index,
             depth=self.depth + 1,
@@ -457,22 +356,13 @@ class PrvKeyNode(PubKeyNode):
     mainnet_version: int = 0x0488ADE4
 
     @property
-    def private_key(self) -> PrivateKey:
-        """
-        Private key node's private key.
-
-        :return: public key of private key node
-        """
-        return PrivateKey(sec_exp=big_endian_to_int(self.key))
-
-    @property
-    def public_key(self) -> PublicKey:
+    def public_key(self) -> Tuple[int, int]:
         """
         Private key node's public key.
 
         :return: public key of public key node
         """
-        return self.private_key.K
+        return fast_multiply(G, big_endian_to_int(self.key))
 
     @property
     def prv_version(self) -> int:
@@ -508,7 +398,7 @@ class PrvKeyNode(PubKeyNode):
         int_left_key = big_endian_to_int(IL)
         if int_left_key == 0:
             raise InvalidKeyError("master key is zero")
-        if int_left_key >= CURVE_ORDER:
+        if int_left_key >= N:
             raise InvalidKeyError(
                 "master key {} is greater/equal to curve order".format(
                     int_left_key
@@ -531,7 +421,7 @@ class PrvKeyNode(PubKeyNode):
         """
         return self._serialize(
             version=self.prv_version if version is None else version,
-            key=b"\x00" + bytes(self.private_key)
+            key=b"\x00" + self.key if len(self.key) == 32 else self.key
         )
 
     def extended_private_key(self, version: int = None) -> str:
@@ -567,19 +457,19 @@ class PrvKeyNode(PubKeyNode):
         """
         if index >= HARDENED:
             # hardened
-            data = b"\x00"+bytes(self.private_key) + int_to_big_endian(index, 4)
+            data = b"\x00" + self.key + int_to_big_endian(index, 4)
         else:
-            data = self.public_key.sec() + int_to_big_endian(index, 4)
+            data = privkey_to_pubkey(self.key) + int_to_big_endian(index, 4)
         I = hmac.new(key=self.chain_code, msg=data, digestmod=hashlib.sha512).digest()
         IL, IR = I[:32], I[32:]
-        if big_endian_to_int(IL) >= CURVE_ORDER:
+        if big_endian_to_int(IL) >= N:
             InvalidKeyError(
                 "private key {} is greater/equal to curve order".format(
                     big_endian_to_int(IL)
                 )
             )
         ki = (int.from_bytes(IL, "big") +
-              big_endian_to_int(bytes(self.private_key))) % CURVE_ORDER
+              big_endian_to_int(self.key)) % N
         if ki == 0:
             InvalidKeyError("private key is zero")
         child = self.__class__(
