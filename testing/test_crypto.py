@@ -324,6 +324,5 @@ def test_bip32_derivation():
     for chain_code, pubkey, path, expected_pk in zip(sk_list, expected_pks, paths, expected_pks_bip32_pub_derivation):
         pk_ecdsa = bip32_ecdsa(chain_code, pubkey, path)
         pk_wally = bip32_wally(chain_code, pubkey, path)
-        assert pk_ecdsa == pk_wally
         all_pks = [pk for pk in [pk_wally, pk_ecdsa] if pk is not None]  # filter out None results of unavailable libs
         assert all([pk == expected_pk for pk in all_pks])
