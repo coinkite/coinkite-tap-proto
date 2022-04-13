@@ -30,6 +30,7 @@ jobs:
           fi
           if [ "$RUNNER_OS" == "Linux" ]; then
             brew install tor
+            brew services start tor
           fi
           cd ${{ github.workspace }}
           pip install --editable '.[test]'
