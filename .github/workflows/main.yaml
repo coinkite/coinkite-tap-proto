@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            apt-get install libpcsclite-dev, swig
+            sudo apt-get install libpcsclite-dev, swig
           fi
           cd ${{ github.workspace }}
           pip install --editable '.[test]'
