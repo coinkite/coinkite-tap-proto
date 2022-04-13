@@ -157,6 +157,10 @@ To see more detail, include the CVC on the command line.
 
 ## Most Useful Commands
 
+### cktap library
+
+`cktap --version`
+- Get the version of cktap library
 
 ### For SATSCARD
 
@@ -214,6 +218,7 @@ Options:
   -w, --wait               Waits until a card is in place.
   -v, --verbose            Show traffic with card.
   --pdb                    Prepare patient for surgery to remove bugs.
+  --version                Show the version and exit.
   --help                   Show this message and exit.
 
 Commands:
@@ -224,7 +229,7 @@ Commands:
   chain    Get which blockchain (Bitcoin/Testnet) is configured.
   change   [TS] Change the CVC code (PIN code)
   check    Verify you have the spending code (CVC) correct.
-  core     [SC] Show JSON needed to import private keys into Bitcoin Core
+  core     [SC] Show JSON needed to import keys into Bitcoin Core
   debug    Start interactive (local) debug session.
   derive   [TS] Change the subkey derivation path to use (shows xpub)
   dump     [SC] Show state of slot number indicated.
