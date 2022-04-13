@@ -39,6 +39,7 @@ jobs:
           cd ${{ github.workspace }}
           cd emulator
           pip install -r requirements.txt
+          pip install dataclasses  # python36
           ./ecard.py --testnet emulate -t &
       - name: Run unittests
         run: |
