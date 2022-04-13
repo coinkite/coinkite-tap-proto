@@ -1,0 +1,39 @@
+name: coinkite-tap-protocol
+
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+    steps:
+      - run: echo "triggered by a ${{ github.event_name }} event."
+      - run: echo "running on a ${{ runner.os }}"
+      - run: echo "branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            echo "macos if statement"
+          fi
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "windows if statement"
+          fi
+          cd ${{ github.workspace }}
+          pip install --editable '.[test]'
+      - name: Run unittests
+        run: |
+          pytest testing/test_crypto.py
+      - run: echo "This job's status is ${{ job.status }}."
