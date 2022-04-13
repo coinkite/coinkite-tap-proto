@@ -34,7 +34,7 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-          pip install -r requirements
+          pip install -r requirements.txt
           ./ecard.py --testnet emulate -t &
       - name: Run unittests
         run: |
