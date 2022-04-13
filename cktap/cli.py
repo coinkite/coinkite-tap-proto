@@ -22,6 +22,7 @@ from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
 from cktap.transport import find_cards
 from cktap.base58 import decode_base58_checksum
+from cktap.version import __version__
 
 # dict of options that apply to all commands
 global global_opts
@@ -171,6 +172,7 @@ class AliasedGroup(click.Group):
                     help="Show traffic with card.")
 @click.option('--pdb', is_flag=True, 
                     help="Prepare patient for surgery to remove bugs.")
+@click.version_option(version=__version__)
 def main(**kws):
     '''
     Interact with SATSCARD and TAPSIGNER cards via NFC tap.
@@ -180,7 +182,6 @@ def main(**kws):
     You can use "bal", or "b" for "balance": any distinct prefix for all commands.
 
     '''
-
     # implement PDB option here
     if kws.pop('pdb', False):
         import pdb, sys
@@ -191,6 +192,7 @@ def main(**kws):
     # global options, mostly not considered here
     global global_opts
     global_opts.update(kws)
+
         
 @main.command('debug')
 def interactive_debug():

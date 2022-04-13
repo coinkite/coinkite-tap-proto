@@ -2,6 +2,8 @@
 # Coinkite Tap protocol and python support library
 #
 
+from cktap import __version__
+
 # To use this command to install and yet be able to edit the code (here). Great for dev:
 #
 #   pip install --editable .
@@ -51,12 +53,10 @@ test_plus_requirements = [
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open("cktap/version.txt") as f:
-    version = f.read().strip()
 
 setup(
     name='coinkite-tap-protocol',
-    version=version,
+    version=__version__,
     packages=[ 'cktap' ],
     python_requires='>3.6.0',
     install_requires=requirements,

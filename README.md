@@ -122,7 +122,7 @@ See [README for emulator](emulator/README.md).
 ### SATSCARD
 
 ```python
->>> from cktap import find_first
+>>> from cktap.transport import find_first
 >>> card = find_first()
 >>> print(card)
 <CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
@@ -133,7 +133,7 @@ See [README for emulator](emulator/README.md).
 ### TAPSIGNER
 
 ```python
->>> from cktap import find_first
+>>> from cktap.transport import find_first
 >>> card = find_first()
 >>> print(card)
 <CKTapCard TAPSIGNER via EMU: 2LNJA-NIGMW-Q5AKC-KD5Q2> 
