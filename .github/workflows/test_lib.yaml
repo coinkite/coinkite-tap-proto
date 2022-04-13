@@ -1,0 +1,15 @@
+name: Unittests
+on: [push]
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "triggered by a ${{ github.event_name }} event."
+      - run: echo "running on a ${{ runner.os }}"
+      - run: echo "branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: List files in the repository
+        run: |
+          cd ${{ github.workspace }} && python3 -m venv venv && . venv/bin/activate && pip install --editable '.[test]' && pytest testing/test_crypto.py
+      - run: echo "This job's status is ${{ job.status }}."
