@@ -93,6 +93,7 @@ jobs:
           .\venv\Scripts\python.exe -m pip install -r requirements.txt
           .\venv\Scripts\python.exe -m pip install dataclasses  # python36
           .\venv\Scripts\python.exe ecard.py --testnet emulate -t &
+          cktap list
       - name: Run lib unittests and tapsigner unittests
         run: |
           pytest -m "not satscard" --cvc 123456 -vvv
