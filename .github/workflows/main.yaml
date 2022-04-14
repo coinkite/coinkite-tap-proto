@@ -89,6 +89,8 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
+          ls
+          ls venv
           ls venv\bin\
           .\venv\bin\pip.exe install -U pip wheel
           .\venv\bin\pip.exe install -r requirements.txt
