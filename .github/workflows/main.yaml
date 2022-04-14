@@ -91,8 +91,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-#          # separate emulator dependencies to virtual enviroment of its own
-#          python3 -m venv venv
           pip install -U pip wheel
           pip install -r requirements.txt
           pip install dataclasses  # python36
