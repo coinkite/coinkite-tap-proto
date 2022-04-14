@@ -15,7 +15,7 @@ click>=6.7
 #zbar-py==1.0.4
 #pyaes
 
-pyscard==2.0.2
+pyscard==2.0.3
 
 # NFC and NDEF handling
 nfcpy==1.0.3
