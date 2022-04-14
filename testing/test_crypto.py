@@ -2,6 +2,11 @@
 # test all available libraries and compare their results with each other and expected results (hardcoded data)
 # if only ecdsa is available it will be tested against expected results
 #
+import pytest
+
+
+pytestmark = [pytest.mark.crypto]
+
 
 # created with os.urandom(32)
 sk_list = [
