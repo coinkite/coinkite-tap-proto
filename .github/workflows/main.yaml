@@ -89,10 +89,10 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
-          .\venv\Lib\bin\pip3.exe -U pip wheel
-          .\venv\Lib\bin\pip3.exe -r requirements.txt
-          .\venv\Lib\bin\pip3.exe dataclasses  # python36
-          .\venv\Scripts\python.exe ecard.py --testnet emulate -t &
+          venv\Lib\bin\pip3.exe -U pip wheel
+          venv\Lib\bin\pip3.exe -r requirements.txt
+          venv\Lib\bin\pip3.exe dataclasses  # python36
+          venv\Scripts\python.exe ecard.py --testnet emulate -t &
           cktap list
       - name: Run lib unittests and tapsigner unittests
         run: |
