@@ -33,6 +33,7 @@ jobs:
             brew services start tor
           fi
           cd ${{ github.workspace }}
+          pip install -U pip wheel
           pip install --editable '.[test,cli]'  # cli for slot unsealing
       - name: Install emulator dependencies and run emulated tapsigner
         run: |
@@ -40,6 +41,7 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
+          venv/bin/pip install -U pip wheel
           venv/bin/pip install -r requirements.txt
           venv/bin/pip install dataclasses  # python36
           venv/bin/python ecard.py --testnet emulate -t &
