@@ -80,10 +80,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install cktap dependencies
         run: |
-          wget https://sourceforge.net/projects/swig/files/swigwin/swigwin-4.0.2/swigwin-4.0.2.zip/download -O swigwin-4.0.2.zip
-          7z x swigwin-4.0.2.zip
-          ls
-          $Env:PATH = "swigwin-4.0.2;$Env:PATH"
           pip install -U pip wheel
           pip install --editable '.[test,cli]'  # cli for slot unsealing
         shell: powershell
@@ -93,10 +89,10 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
-          venv/bin/pip install -U pip wheel
-          venv/bin/pip install -r requirements.txt
-          venv/bin/pip install dataclasses  # python36
-          venv/bin/python ecard.py --testnet emulate -t &
+          venv\bin\pip.exe install -U pip wheel
+          venv\bin\pip.exe install -r requirements.txt
+          venv\bin\pip.exe install dataclasses  # python36
+          venv\bin\python.exe ecard.py --testnet emulate -t &
       - name: Run lib unittests and tapsigner unittests
         run: |
           pytest -m "not satscard" --cvc 123456 -vvv
@@ -107,7 +103,7 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-          venv/bin/python ecard.py --testnet emulate &
+          venv\bin\python.exe ecard.py --testnet emulate &
           # unseal one slot
           cktap unseal 123456
       - name: Run satscard unittests
