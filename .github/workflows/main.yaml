@@ -81,7 +81,8 @@ jobs:
       - name: Install cktap dependencies
         run: |
           wget https://sourceforge.net/projects/swig/files/swigwin/swigwin-4.0.2/swigwin-4.0.2.zip/download -O swigwin-4.0.2.zip
-          Expand-Archive -Path swigwin-4.0.2.zip -DestinationPath swigwin-4.0.2
+          7z x swigwin-4.0.2.zip
+          ls
           $Env:PATH = "swigwin-4.0.2;$Env:PATH"
           pip install -U pip wheel
           pip install --editable '.[test,cli]'  # cli for slot unsealing
