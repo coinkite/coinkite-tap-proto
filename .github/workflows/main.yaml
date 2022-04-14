@@ -89,7 +89,7 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
-          ls .\venv\Lib\bin\
+          ls .\venv\Lib
           .\venv\Lib\bin\pip.exe -U pip wheel
           .\venv\Lib\bin\pip.exe -r requirements.txt
           .\venv\Lib\bin\pip.exe dataclasses  # python36
