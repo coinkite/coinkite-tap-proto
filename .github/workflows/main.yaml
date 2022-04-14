@@ -88,7 +88,8 @@ jobs:
               param([string]$zipfile, [string]$outpath)
               [System.IO.Compression.ZipFile]::ExtractToDirectory($zipfile, $outpath)
           }
-          Unzip "swigwin-4.0.2.zip" "C:\swigwin-4.0.2"
+          Unzip "swigwin-4.0.2.zip" "swigwin-4.0.2"
+          ls
           $Env:PATH = "C:\swigwin-4.0.2;$Env:PATH"
           pip install -U pip wheel
           pip install --editable '.[test,cli]'  # cli for slot unsealing
