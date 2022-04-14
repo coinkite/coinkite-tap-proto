@@ -93,6 +93,8 @@ jobs:
           pip install --target venv\Lib -r requirements.txt
           pip install --target venv\Lib dataclasses  # python36
           ls venv\Lib
+          ls venv\Lib\bin
+          ls venv\Lib\site-packages
           .\venv\Scripts\python.exe ecard.py --testnet emulate -t &
           cktap list
       - name: Run lib unittests and tapsigner unittests
