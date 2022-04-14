@@ -89,12 +89,9 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
-          pip install --target venv\Lib -U pip wheel
-          pip install --target venv\Lib -r requirements.txt
-          pip install --target venv\Lib dataclasses  # python36
-          ls venv\Lib
-          ls venv\Lib\bin
-          ls venv\Lib\site-packages
+          .\venv\Lib\bin\pip3.exe -U pip wheel
+          .\venv\Lib\bin\pip3.exe -r requirements.txt
+          .\venv\Lib\bin\pip3.exe dataclasses  # python36
           .\venv\Scripts\python.exe ecard.py --testnet emulate -t &
           cktap list
       - name: Run lib unittests and tapsigner unittests
