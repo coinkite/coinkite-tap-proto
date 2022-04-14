@@ -89,10 +89,10 @@ jobs:
           cd emulator
           # separate emulator dependencies to virtual enviroment of its own
           python3 -m venv venv
-          venv\bin\pip.exe install -U pip wheel
-          venv\bin\pip.exe install -r requirements.txt
-          venv\bin\pip.exe install dataclasses  # python36
-          venv\bin\python.exe ecard.py --testnet emulate -t &
+          .\venv\bin\pip.exe install -U pip wheel
+          .\venv\bin\pip.exe install -r requirements.txt
+          .\venv\bin\pip.exe install dataclasses  # python36
+          .\venv\bin\python.exe ecard.py --testnet emulate -t &
       - name: Run lib unittests and tapsigner unittests
         run: |
           pytest -m "not satscard" --cvc 123456 -vvv
@@ -103,7 +103,7 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-          venv\bin\python.exe ecard.py --testnet emulate &
+          .\venv\bin\python.exe ecard.py --testnet emulate &
           # unseal one slot
           cktap unseal 123456
       - name: Run satscard unittests
