@@ -38,9 +38,11 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-          pip install -r requirements.txt
-          pip install dataclasses  # python36
-          ./ecard.py --testnet emulate -t &
+          # separate emulator dependencies to virtual enviroment of its own
+          python3 -m venv venv
+          venv/bin/pip -r requirements.txt
+          venv/bin/pip dataclasses  # python36
+          venv/bin/python ecard.py --testnet emulate -t &
       - name: Run lib unittests and tapsigner unittests
         run: |
           pytest -m "not satscard" --cvc 123456 -vvv
@@ -51,7 +53,7 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           cd emulator
-          ./ecard.py --testnet emulate &
+          venv/bin/python ecard.py --testnet emulate &
           # unseal one slot
           cktap unseal 123456
       - name: Run satscard unittests
