@@ -44,7 +44,8 @@ def test_wrap():
     ss = CT_ecdh(pub, pk)
     assert ss == b'\x10L^\xf4iY\x01<\xc5*.jZ\xcc&\xb97\xf7\xcf\x91\x0f\r\x80O{\xf2x\xef\x1e\xb2\xd9\xed'
 
-    
+
+@pytest.mark.device
 def test_addr(dev):
     # core functions
     if not dev.tr.is_emulator:
@@ -58,6 +59,7 @@ def test_addr(dev):
         a2 = dev.address(faster=True)
         assert a2 == addr
 
+@pytest.mark.device
 def test_status_fields(dev):
     st = dev.send('status')
     assert st.pop('proto') == 1
@@ -106,6 +108,7 @@ def test_status_fields(dev):
     assert len(st) == 0, f'Extra fields: {st}'
 
 @pytest.mark.satscard
+@pytest.mark.device
 def test_dump_unauth(dev):
     # all slots can be dumped w/o CVC but limited info
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -131,7 +134,9 @@ def test_dump_unauth(dev):
 
         assert not d.keys(), repr(d)
 
+
 @pytest.mark.satscard
+@pytest.mark.device
 def test_dump_unsealed(dev, known_cvc):
     # dump details of all unsealed slots 
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -170,7 +175,9 @@ def test_dump_unsealed(dev, known_cvc):
         assert actual == d['pubkey']
         assert render_address(actual, st.get('testnet', False)) == derived_addr
 
+
 @pytest.mark.satscard
+@pytest.mark.device
 def test_get_privkey(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     
@@ -187,20 +194,25 @@ def test_get_privkey(dev, known_cvc):
     if not count:
         raise pytest.xfail("no unsealed slots")
 
+
 @pytest.mark.satscard
+@pytest.mark.device
 def test_get_usage_1(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot, known_cvc)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
+
 @pytest.mark.satscard
+@pytest.mark.device
 def test_get_usage_2(dev):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
+@pytest.mark.device
 def test_url_from_card(dev):
     history = set()
     for n in range(10):
