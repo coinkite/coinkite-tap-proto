@@ -26,7 +26,6 @@ from setuptools import setup
 # these minimum versions are tested, some earlier values would probably work too.
 requirements = [
     'cbor2>=5.4.1',
-    'bech32>=1.2.0',
     'pyscard>=2.0.2',
 ]
 
@@ -47,7 +46,7 @@ test_requirements = [
 test_plus_requirements = [
     'coincurve>=15.0.1',
     'wallycore>=0.8.2',
-    'python-secp256k1@git+https://github.com/scgbckbone/python-secp256k1.git',
+    'python-secp256k1@git+https://github.com/scgbckbone/python-secp256k1.git',  # needs libsecp256k1 installed (check project README.md)
 ] + test_requirements
 
 with open("README.md", "r") as fh:

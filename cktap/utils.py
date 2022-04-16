@@ -1,6 +1,6 @@
 # (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
-import os, bech32, struct
+import os, struct
 from binascii import b2a_hex, a2b_hex
 from cktap.constants import *
 from cktap.compat import hash160, sha256s
@@ -8,6 +8,7 @@ from cktap.compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypa
 from cktap.compat import CT_bip32_derive, CT_priv_to_pubkey
 from cktap.descriptors import descsum_create
 from cktap.base58 import encode_base58_checksum
+from cktap.bech32 import encode as bech32_encode
 
 # show bytes as hex in a string
 B2A = lambda x: b2a_hex(x).decode('ascii')
@@ -193,7 +194,7 @@ def render_address(pubkey, testnet=False):
         pubkey = CT_priv_to_pubkey(pubkey)
 
     HRP = 'bc' if not testnet else 'tb'
-    return bech32.encode(HRP, 0, hash160(pubkey))
+    return bech32_encode(HRP, 0, hash160(pubkey))
 
 def render_wif(privkey, bip_178=False, electrum=False, testnet=False):
     # Show the WIF in useful text format (base58)

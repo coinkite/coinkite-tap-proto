@@ -1,7 +1,6 @@
 # Requirements both for usign CLI and as a library.
 
 cbor2>=5.4.1
-bech32>=1.2.0
 pyscard==2.0.2
 
 #
