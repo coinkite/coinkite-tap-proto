@@ -82,8 +82,7 @@ jobs:
         run: |
           wget https://dist.torproject.org/torbrowser/11.0.10/tor-win64-0.4.6.10.zip -O tor-win64-0.4.6.10.zip
           7z x tor-win64-0.4.6.10.zip
-          ls
-          cd tor-win64-0.4.6.10\Tor
+          cd Tor
           Start-Process "tor.exe" -WindowStyle Hidden
         shell: powershell
       - name: Install cktap dependencies
