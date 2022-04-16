@@ -6,62 +6,66 @@ on:
     branches: [ $default-branch ]
   workflow_dispatch:
 jobs:
-#  unix:
-#    runs-on: ${{ matrix.os }}
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        os: [ubuntu-latest, macos-latest]
-#        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
-#    steps:
-#      - run: echo "triggered by a ${{ github.event_name }} event."
-#      - run: echo "running on a ${{ runner.os }}"
-#      - run: echo "branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-#      - uses: actions/checkout@v3
-#      - name: Set up Python ${{ matrix.python-version }}
-#        uses: actions/setup-python@v3
-#        with:
-#          python-version: ${{ matrix.python-version }}
-#      - name: Install cktap dependencies
-#        run: |
-#          if [ "$RUNNER_OS" == "Linux" ]; then
-#            sudo apt-get update -y
-#            sudo apt-get install -y swig libpcsclite-dev tor
-#          fi
-#          if [ "$RUNNER_OS" == "macOS" ]; then
-#            brew install tor
-#            brew services start tor
-#          fi
-#          cd ${{ github.workspace }}
-#          pip install -U pip wheel
-#          pip install --editable '.[test,cli]'  # cli for slot unsealing
-#      - name: Install emulator dependencies and run emulated tapsigner
-#        run: |
-#          cd ${{ github.workspace }}
-#          cd emulator
-#          # separate emulator dependencies to virtual enviroment of its own
-#          python3 -m venv venv
-#          venv/bin/pip install -U pip wheel
-#          venv/bin/pip install -r requirements.txt
-#          venv/bin/pip install dataclasses  # python36
-#          venv/bin/python ecard.py --testnet emulate -t &
-#      - name: Run lib unittests and tapsigner unittests
-#        run: |
-#          pytest -m "not satscard" --cvc 123456 -vvv
-#      - name: Kill tapsigner emulator process
-#        run: |
-#          pgrep -f ecard.py | xargs kill -9
-#      - name: Run emulated satscard
-#        run: |
-#          cd ${{ github.workspace }}
-#          cd emulator
-#          venv/bin/python ecard.py --testnet emulate &
-#          # unseal one slot
-#          cktap unseal 123456
-#      - name: Run satscard unittests
-#        run: |
-#          pytest -m "satscard" --cvc 123456 -vvv
-#      - run: echo "This job's status is ${{ job.status }}."
+  unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+    steps:
+      - run: echo "triggered by a ${{ github.event_name }} event."
+      - run: echo "running on a ${{ runner.os }}"
+      - run: echo "branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install cktap dependencies
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update -y
+            sudo apt-get install -y swig libpcsclite-dev tor
+          fi
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            brew install tor
+            brew services start tor
+          fi
+          cd ${{ github.workspace }}
+          pip install -U pip wheel
+          pip install --editable '.[test,cli]'  # cli for slot unsealing
+      - name: Install emulator dependencies and run emulated tapsigner
+        run: |
+          cd ${{ github.workspace }}
+          cd emulator
+          # separate emulator dependencies to virtual enviroment of its own
+          python3 -m venv venv
+          venv/bin/pip install -U pip wheel
+          venv/bin/pip install -r requirements.txt
+          venv/bin/pip install dataclasses  # python36
+          venv/bin/python ecard.py --testnet emulate -t &
+      - name: Run lib unittests and tapsigner unittests
+        run: |
+          pytest -m "not satscard and not crypto" --cvc 123456 -vvv
+      - name: Kill tapsigner emulator process
+        run: |
+          pgrep -f ecard.py | xargs kill -9
+      - name: Run emulated satscard
+        run: |
+          cd ${{ github.workspace }}
+          cd emulator
+          venv/bin/python ecard.py --testnet emulate &
+          # unseal one slot
+          cktap unseal 123456
+      - name: Run satscard unittests
+        run: |
+          pytest -m "satscard" --cvc 123456 -vvv
+      - name: Run crypto comparison tests
+        run: |
+          pip install wallycore coincurve
+          pytest -m "crypto" -vvv
+      - run: echo "This job's status is ${{ job.status }}."
 
   windows:
     runs-on: windows-latest
@@ -90,7 +94,11 @@ jobs:
           pip install -U pip wheel
           pip install --editable '.[test]'
         shell: powershell
-      - name: Run crypto comparison unittests
+      - name: Run non-device test
         run: |
-          pytest -m "not device" -vvv
+          pytest -m "not device and not crypto" -vvv
+      - name: Run crypto comparison tests
+        run: |
+          pip install wallycore coincurve
+          pytest -m "crypto" -vvv
       - run: echo "This job's status is ${{ job.status }}."
