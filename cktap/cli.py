@@ -22,7 +22,7 @@ from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
 from cktap.transport import find_cards
 from cktap.base58 import decode_base58_checksum
-from cktap.version import __version__
+from cktap import __version__
 
 # dict of options that apply to all commands
 global global_opts
