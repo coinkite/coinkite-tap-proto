@@ -252,12 +252,15 @@ def get_block_chain():
 @click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
-@click.option('--subpath', '-p', type=str,metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path")
+@click.option('--subpath', '-p', type=str,metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path. Tapsigner only!")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
-    "[TS] Sign a short text message"
-    card = get_card(only_tapsigner=True)
+    "Sign a short text message"
+    card = get_card()
     cvc = cleanup_cvc(card, cvc)
 
+    if not card.is_tapsigner and subpath:
+        click.echo("Cannot use 'subpath' option for SATSCARD", err=True)
+        sys.exit(1)
     # subpath validation
     int_path = str2path(subpath) if subpath is not None else []
     if len(int_path) > 2:
@@ -280,7 +283,10 @@ def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     # XXX on TS, this could work and be useful .. because we'd just share a classic address
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
-    ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md, subpath=int_path)
+    if card.is_tapsigner:
+        ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md, subpath=int_path)
+    else:
+        ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md)
     expect_pub = resp['pubkey']
 
     if card.is_tapsigner:
