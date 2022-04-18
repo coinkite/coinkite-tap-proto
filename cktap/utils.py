@@ -51,15 +51,26 @@ def str2path(path):
     rv = []
 
     for i in path.split('/'):
-        if i == 'm': continue
-        if not i: continue      # trailing or duplicated slashes
+        if i == 'm':
+            continue
+        if not i:
+            # trailing or duplicated slashes
+            continue
 
         if i[-1] in "'phHP":
-            assert len(i) >= 2, i
-            here = int(i[:-1]) | HARDENED
+            if len(i) < 2:
+                raise ValueError(f"Malformed bip32 path component: {i}")
+            num = int(i[:-1])
+            if num >= HARDENED:
+                # cannot be more than (2 ** 31) - 1
+                raise ValueError(f"Hardened path component out of band: {i}")
+            here = num | HARDENED
         else:
-            here = int(i, 0)
-            assert 0 <= here < HARDENED, here
+            here = int(i)
+            if 0 > here or here >= HARDENED:
+                # cannot be less than 0
+                # cannot be more than (2 ** 31) - 1
+                raise ValueError(f"Non-hardened path component out of band: {i}")
 
         rv.append(here)
 

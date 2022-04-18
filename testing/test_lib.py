@@ -99,6 +99,15 @@ def test_status_fields(dev):
             pass
 
     assert len(st) == 0, f'Extra fields: {st}'
+
+
+def test_set_derivation(dev, known_cvc):
+    if not dev.is_tapsigner: raise pytest.skip("satscard")
+    with pytest.raises(ValueError) as err:
+        dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # more than 8 components
+    assert err.value.args[0] == 'No more than 8 path components allowed.'
+    assert dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # exactly 8 components - must pass
+
     
 def test_dump_unauth(dev):
     # all slots can be dumped w/o CVC but limited info
