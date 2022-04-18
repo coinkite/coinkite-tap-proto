@@ -15,6 +15,7 @@ from binascii import b2a_hex, a2b_hex
 from functools import wraps
 from getpass import getpass
 from copy import deepcopy
+from base64 import b64encode
 
 from .utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size, str2path, none_hardened
 from .utils import make_recoverable_sig, render_sats_value, path2str, pick_nonce
@@ -253,8 +254,10 @@ def get_block_chain():
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
 @click.option('--subpath', '-p', type=str,metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
-    "Sign a short text message"
-    from base64 import b64encode
+    "[TS] Sign a short text message"
+    card = get_card(only_tapsigner=True)
+    cvc = cleanup_cvc(card, cvc)
+
     # subpath validation
     int_path = str2path(subpath) if subpath is not None else []
     if len(int_path) > 2:
@@ -263,9 +266,6 @@ def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     if not none_hardened(int_path):
         click.echo(f"Subpath {subpath} contains hardened components", err=True)
         sys.exit(1)
-
-    card = get_card()
-    cvc = cleanup_cvc(card, cvc)
 
     message = message.encode('ascii') if not isinstance(message, bytes) else message
 
