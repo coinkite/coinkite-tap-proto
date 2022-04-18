@@ -54,10 +54,12 @@ def str2path(path):
         if i == 'm': continue
         if not i: continue      # trailing or duplicated slashes
 
-        if i[-1] in "p'h":
-            here = int(i[:-1], 0) | HARDENED
+        if i[-1] in "'phHP":
+            assert len(i) >= 2, i
+            here = int(i[:-1]) | HARDENED
         else:
             here = int(i, 0)
+            assert 0 <= here < HARDENED, here
 
         rv.append(here)
 
@@ -271,25 +273,6 @@ def make_recoverable_sig(digest, sig, addr=None, expect_pubkey=None, is_testnet=
     # failed to recover right pubkey value
     raise ValueError("sig may not be created by that address/pubkey??")
 
-
-def str_to_int_path(path):
-    # convert text  m/34'/33/44 into list of integers
-
-    rv = []
-    for i in path.split('/'):
-        if i == 'm': continue
-        if not i: continue      # trailing or duplicated slashes
-        
-        if i[-1] in "'phHP":
-            assert len(i) >= 2, i
-            here = int(i[:-1]) | 0x80000000
-        else:
-            here = int(i)
-            assert 0 <= here < 0x80000000, here
-        
-        rv.append(here)
-
-    return rv
     
 def render_sats_value(c, u):
     # string value for humans: making this hard to parse on purpose
