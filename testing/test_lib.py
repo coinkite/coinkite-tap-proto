@@ -6,6 +6,7 @@
 # NOTE: these are just cktap tests; we have much more complex test suite for the card.
 #
 import pytest
+import os
 from cktap.constants import *
 from cktap.compat import *
 from cktap.utils import xor_bytes, verify_derive_address, render_address
@@ -107,6 +108,42 @@ def test_set_derivation(dev, known_cvc):
         dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # more than 8 components
     assert err.value.args[0] == 'No more than 8 path components allowed.'
     assert dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # exactly 8 components - must pass
+
+
+def test_sign_digest(dev, known_cvc):
+    if not dev.is_tapsigner:
+        try:
+            dev.unseal_slot(known_cvc)
+        except:
+            # was unsealed in previous run
+            pass
+    for _ in range(10):
+        msg_digest = sha256s(sha256s(os.urandom(32)))
+        sig = dev.sign_digest(known_cvc, 0, msg_digest)
+        assert len(sig) == 65
+
+    if dev.is_tapsigner:
+        for i in range(10):
+            msg_digest = sha256s(sha256s(os.urandom(32)))
+            sig = dev.sign_digest(known_cvc, 0, msg_digest, subpath=f"{i}/{i+100}")
+            assert len(sig) == 65
+
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0/0")
+        assert err.value.args[0] == 'Length of path 0/0/0 greater than 2'
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0h")
+        assert err.value.args[0] == "Subpath 0/0h contains hardened components"
+    else:
+        # SATSCARD does not support subpath
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0")
+        assert err.value.args[0] == "Cannot use 'subpath' option for SATSCARD"
+
+    # digest len not equal to 32
+    with pytest.raises(ValueError) as err:
+        dev.sign_digest(known_cvc, 0, os.urandom(33), subpath="0/0")
+    assert err.value.args[0] == "Digest must be exactly 32 bytes"
 
     
 def test_dump_unauth(dev):
