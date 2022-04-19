@@ -65,11 +65,6 @@ def prandom(count):
     # make some bytes, randomly, but not: fully deterministic
     return bytes(random.randint(0, 255) for i in range(count))
 
-def maybe_unlucky():
-    if random.randint(0, 8) == 1:
-        print("such bad luck")
-        raise CKErrorCode("unlucky number", 205)
-
 def xor_bytes(a, b):
     # XOR the bytes of A and B
     assert len(a) == len(b)
@@ -621,7 +616,7 @@ class CardState:
         # decrypt digest to be signed.
         md = xor_bytes(digest, ses_key)
 
-        maybe_unlucky()
+        self.maybe_unlucky()
 
         if self.is_tapsigner:
             assert 0 <= len(subpath) <= 2
@@ -638,6 +633,12 @@ class CardState:
 
         self._new_nonce()
         return dict(slot=slot, card_nonce=self.nonce, sig=sig, pubkey=pub)
+
+    def maybe_unlucky(self):
+        if random.randint(0, 8) == 1:
+            print("such bad luck")
+            self._new_nonce()
+            raise CKErrorCode("unlucky number", 205)
 
     def cmd_backup(self, epubkey=REQUIRED, xcvc=REQUIRED, **unused):
         if not self.is_tapsigner:
