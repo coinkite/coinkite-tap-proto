@@ -67,7 +67,7 @@ def str2path(path):
             here = num | HARDENED
         else:
             here = int(i, 0)
-            if 0 > here or here >= HARDENED:
+            if not (0 <= here < HARDENED):
                 # cannot be less than 0
                 # cannot be more than (2 ** 31) - 1
                 raise ValueError(f"Non-hardened path component out of range: {i}")
