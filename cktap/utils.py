@@ -60,17 +60,17 @@ def str2path(path):
         if i[-1] in "'phHP":
             if len(i) < 2:
                 raise ValueError(f"Malformed bip32 path component: {i}")
-            num = int(i[:-1])
+            num = int(i[:-1], 0)
             if num >= HARDENED:
                 # cannot be more than (2 ** 31) - 1
-                raise ValueError(f"Hardened path component out of band: {i}")
+                raise ValueError(f"Hardened path component out of range: {i}")
             here = num | HARDENED
         else:
-            here = int(i)
+            here = int(i, 0)
             if 0 > here or here >= HARDENED:
                 # cannot be less than 0
                 # cannot be more than (2 ** 31) - 1
-                raise ValueError(f"Non-hardened path component out of band: {i}")
+                raise ValueError(f"Non-hardened path component out of range: {i}")
 
         rv.append(here)
 

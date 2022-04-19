@@ -177,8 +177,8 @@ class CKTapCard:
         # just empty (aka 'm').
         assert self.is_tapsigner
         np = str2path(path)
-        if len(np) > 8:
-            raise ValueError("No more than 8 path components allowed.")
+        if len(np) > DERIVE_MAX_BIP32_PATH_DEPTH:
+            raise ValueError(f"No more than {DERIVE_MAX_BIP32_PATH_DEPTH} path components allowed.")
 
         if not all_hardened(np):
             raise ValueError("All path components must be hardened")
