@@ -5,14 +5,13 @@
 # Implement the higher-level protocol for cards, both TAPSIGNER and SATSCARD.
 #
 #
-import sys, os, cbor2
-from binascii import b2a_hex, a2b_hex
-from hashlib import sha256
+
 from cktap.utils import *
 from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
-from cktap.compat import hash160, sha256s
+from cktap.compat import hash160, CT_sig_verify
 from cktap.base58 import encode_base58_checksum
+
 
 class CKTapCard:
     #
@@ -178,6 +177,8 @@ class CKTapCard:
         # just empty (aka 'm').
         assert self.is_tapsigner
         np = str2path(path)
+        if len(np) > DERIVE_MAX_BIP32_PATH_DEPTH:
+            raise ValueError(f"No more than {DERIVE_MAX_BIP32_PATH_DEPTH} path components allowed.")
 
         if not all_hardened(np):
             raise ValueError("All path components must be hardened")
@@ -316,6 +317,50 @@ class CKTapCard:
         addr = addr or here.get('addr')
 
         return (addr, status, here)
+
+    def sign_digest(self, cvc: str, slot: int, digest: bytes, subpath: str = None) -> bytes:
+        """
+        Sign 32 bytes digest and return 65 bytes long recoverable signature.
+
+        Uses derivation path based on current set derivation on card plus optional
+        subpath parameter which if provided, will be added to card derivation path.
+        Subpath can only be of length 2 and non-hardened components only.
+
+        Returns non-deterministic recoverable signature (header[1b], r[32b], s[32b])
+        """
+        if len(digest) != 32:
+            raise ValueError("Digest must be exactly 32 bytes")
+        if not self.is_tapsigner and subpath:
+            raise ValueError("Cannot use 'subpath' option for SATSCARD")
+        # subpath validation
+        int_path = str2path(subpath) if subpath is not None else []
+        if len(int_path) > 2:
+            raise ValueError(f"Length of path {subpath} greater than 2")
+        if not none_hardened(int_path):
+            raise ValueError(f"Subpath {subpath} contains hardened components")
+        if self.is_tapsigner:
+            slot = 0
+        for _ in range(5):
+            try:
+                if self.is_tapsigner:
+                    ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest, subpath=int_path)
+                else:
+                    ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest)
+                expect_pub = resp['pubkey']
+                sig = resp['sig']
+                if not CT_sig_verify(expect_pub, digest, sig):
+                    continue
+                rec_sig = make_recoverable_sig(digest, sig, addr=None, expect_pubkey=expect_pub, is_testnet=self.is_testnet)
+                return rec_sig
+            except CardRuntimeError as err:
+                if err.code == 205:  # unlucky number
+                    # status to update card nonce
+                    self.send('status')
+                    continue
+                raise
+        # probability that we get here is very close to zero
+        msg = "Failed to sign digest after 5 retries. Try again."
+        raise CardRuntimeError(f'500 on sign: {msg}', 500, msg)
 
     # TODO
     # - 'sign_digest' command which does the retries needed

@@ -43,6 +43,13 @@ def ser_compact_size(l):
 # high bit set in LE32 indicating hardened BIP-32 path component
 HARDENED = 0x8000_0000
 
+def path_component_in_range(num: int) -> bool:
+    # cannot be less than 0
+    # cannot be more than (2 ** 31) - 1
+    if 0 <= num < HARDENED:
+        return True
+    return False
+
 def path2str(path):
     # take numeric path (list of numbers) and convert to human form
     # - standardizing on "m/84h" style
@@ -53,15 +60,25 @@ def str2path(path):
     rv = []
 
     for i in path.split('/'):
-        if i == 'm': continue
-        if not i: continue      # trailing or duplicated slashes
+        if i == 'm':
+            continue
+        if not i:
+            # trailing or duplicated slashes
+            continue
 
         if i[-1] in "'phHP":
-            assert len(i) >= 2, i
-            here = int(i[:-1]) | HARDENED
+            if len(i) < 2:
+                raise ValueError(f"Malformed bip32 path component: {i}")
+            num = int(i[:-1], 0)
+            if not path_component_in_range(num):
+                raise ValueError(f"Hardened path component out of range: {i}")
+            here = num | HARDENED
         else:
             here = int(i, 0)
-            assert 0 <= here < HARDENED, here
+            if not path_component_in_range(here):
+                # cannot be less than 0
+                # cannot be more than (2 ** 31) - 1
+                raise ValueError(f"Non-hardened path component out of range: {i}")
 
         rv.append(here)
 

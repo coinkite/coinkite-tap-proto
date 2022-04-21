@@ -14,6 +14,7 @@ from binascii import b2a_hex
 from functools import wraps
 from getpass import getpass
 from copy import deepcopy
+from base64 import b64encode
 
 from cktap.utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
 from cktap.utils import make_recoverable_sig, path2str, pick_nonce
@@ -253,55 +254,26 @@ def get_block_chain():
 @click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
-@click.option('--subpath', '-p', type=str,metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path")
+@click.option('--subpath', '-p', type=str, metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path. Tapsigner only!")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
-    "Sign a short text message"
-    from base64 import b64encode
-    # subpath validation
-    int_path = str2path(subpath) if subpath is not None else []
-    if len(int_path) > 2:
-        click.echo(f"Length of path {subpath} greater than 2", err=True)
-        sys.exit(1)
-    if not none_hardened(int_path):
-        click.echo(f"Subpath {subpath} contains hardened components", err=True)
-        sys.exit(1)
-
+    """Sign a short text message"""
     card = get_card()
     cvc = cleanup_cvc(card, cvc)
 
     message = message.encode('ascii') if not isinstance(message, bytes) else message
-
-    # TODO: 
-    # - using <https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki>
-    # - build a message digest, based on BIP-340 "tagged hash" and a fake to_sign txn
-    # - send digest to card
-    # - serialize result, which includes to_sign txn
-
-    # XXX until then, pretend we are living in a simple 2010 world.
-    # - I don't know of any tools which can be used to verify this signature... so it's useless
-    # XXX on TS, this could work and be useful .. because we'd just share a classic address
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
-    ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md, subpath=int_path)
-    expect_pub = resp['pubkey']
+    try:
+        rec_sig = card.sign_digest(cvc=cvc, slot=slot, digest=md, subpath=subpath)
+    except ValueError as err:
+        fail(str(err))
 
-    if card.is_tapsigner:
-        addr = None
-        just_sig = True
-    else:
-        addr = card.address(slot=slot)
+    sig = str(b64encode(rec_sig), 'ascii').replace('\n', '')
 
-    # problem: not a recoverable signature, need to calc recid based on our
-    # knowledge of address
-    raw = make_recoverable_sig(md, resp['sig'],
-                                addr=addr, expect_pubkey=expect_pub,
-                                is_testnet=card.is_testnet)
-
-    sig = str(b64encode(raw), 'ascii').replace('\n', '')
-
-    if just_sig:
+    if just_sig or card.is_tapsigner:
         click.echo(str(sig))
     else:
+        addr = card.address(slot=slot)
         if verbose:
             click.echo('-----BEGIN SIGNED MESSAGE-----\n{msg}\n-----BEGIN '
                       'SIGNATURE-----\n{addr}\n{sig}\n-----END SIGNED MESSAGE-----'.format(

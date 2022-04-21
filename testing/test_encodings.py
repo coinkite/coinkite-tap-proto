@@ -15,5 +15,20 @@ def test_card_pubkey_to_ident():
 )
 def test_paths(case):
     assert path2str(str2path(case)) == case
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/0h/0h/2147483648h")
+    assert err.value.args[0] == 'Hardened path component out of range: 2147483648h'
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/h/0h")
+    assert err.value.args[0] == 'Malformed bip32 path component: h'
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/0h/2147483648")
+    assert err.value.args[0] == 'Non-hardened path component out of range: 2147483648'
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/0h/-1")
+    assert err.value.args[0] == 'Non-hardened path component out of range: -1'
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/-1h/0h")
+    assert err.value.args[0] == 'Hardened path component out of range: -1h'
 
 # EOF
