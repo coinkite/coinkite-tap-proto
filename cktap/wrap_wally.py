@@ -54,18 +54,20 @@ def CT_sign(privkey, msg_digest, recoverable=False):
 def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
     from wallycore import bip32_key_init, bip32_key_get_pub_key, bip32_key_from_parent
     from wallycore import BIP32_VER_MAIN_PUBLIC, BIP32_VER_MAIN_PRIVATE
-    from wallycore import BIP32_FLAG_SKIP_HASH, BIP32_FLAG_KEY_PUBLIC
+    from wallycore import BIP32_FLAG_SKIP_HASH, BIP32_FLAG_KEY_PUBLIC, BIP32_FLAG_KEY_PRIVATE
 
     if len(master_priv_pub) == 32:
         m = bip32_key_init(BIP32_VER_MAIN_PRIVATE, 0, 0, chain_code,
             None, master_priv_pub, None, None)
+        flag = BIP32_FLAG_KEY_PRIVATE
     else:
         m = bip32_key_init(BIP32_VER_MAIN_PUBLIC, 0, 0, chain_code,
             master_priv_pub, None, None, None)
+        flag = BIP32_FLAG_KEY_PUBLIC
 
     node = m
     for sk in subkey_path:
-        node = bip32_key_from_parent(node, sk, BIP32_FLAG_SKIP_HASH | BIP32_FLAG_KEY_PUBLIC)
+        node = bip32_key_from_parent(node, sk, BIP32_FLAG_SKIP_HASH | flag)
 
     return bip32_key_get_pub_key(node)
 

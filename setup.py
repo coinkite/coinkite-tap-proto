@@ -2,9 +2,19 @@
 # Coinkite Tap protocol and python support library
 #
 
+from cktap import __version__
+
 # To use this command to install and yet be able to edit the code (here). Great for dev:
 #
 #   pip install --editable .
+#
+# with cli dependencies
+#
+#   pip install --editable '.[cli]'
+#
+# with test dependencies
+#
+#   pip install --editable '.[test]'
 #
 # On Windows, this can be useful:
 #
@@ -16,39 +26,32 @@ from setuptools import setup
 # these minimum versions are tested, some earlier values would probably work too.
 requirements = [
     'cbor2>=5.4.1',
-    'bech32>=1.2.0',
-    'base58>=2.1.1',
     'pyscard>=2.0.2',
 ]
 
-if 1:
-    # We support wallycore or coincurve; both of which
-    # ultimately call libsecp256k1 
-    #
-    # - but I could not compile wallycore on windows
-    # - prolly because coincurve has 500+ lines of setup.py code
-    # - sorry I could not make this file detect O/S automatically?!
-    #
-    requirements.extend([
-        'coincurve>=15.0.1',
-        'bip32>=2.1',
-    ])
-else:
-    requirements.extend([
-        'wallycore>=0.8.2',
-    ])
+requests_socks = 'requests[socks]>=2.26.0'
 
 cli_requirements = [
     'click>=8.0.3',
     'pyqrcode>=1.2.1',
     'pypng>=0.0.21',
-    'requests[socks]>=2.26.0',
+    requests_socks,
 ]
+
+test_requirements = [
+    'pytest',
+    requests_socks,
+]
+# only for developers playing with crypto libraries - cross library comparisons
+test_plus_requirements = [
+    'coincurve>=15.0.1',
+    'wallycore>=0.8.2',
+    'python-secp256k1@git+https://github.com/scgbckbone/python-secp256k1.git',  # needs libsecp256k1 installed (check project README.md)
+] + test_requirements
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-from cktap.version import __version__
 
 setup(
     name='coinkite-tap-protocol',
@@ -58,6 +61,8 @@ setup(
     install_requires=requirements,
     extras_require={
         'cli': cli_requirements,
+        'test': test_requirements,
+        'test_plus': test_plus_requirements,
     },
     url='https://github.com/coinkite/coinkite-tap-proto',
     author='Coinkite Inc.',

@@ -47,8 +47,12 @@ If you just want the Python library, use: `pip install coinkite-tap-protocol`
 3. Run:
 
 ```
-pip install -r requirements.txt
+# only library
+pip install --editable .
+# or with cktap cmdline utility
 pip install --editable '.[cli]'
+# for testing purposes
+pip install --editable '.[test]'
 ```
 
 This installs `cktap` and any changes you make will be immediately
@@ -118,7 +122,7 @@ See [README for emulator](emulator/README.md).
 ### SATSCARD
 
 ```python
->>> from cktap import find_first
+>>> from cktap.transport import find_first
 >>> card = find_first()
 >>> print(card)
 <CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
@@ -129,7 +133,7 @@ See [README for emulator](emulator/README.md).
 ### TAPSIGNER
 
 ```python
->>> from cktap import find_first
+>>> from cktap.transport import find_first
 >>> card = find_first()
 >>> print(card)
 <CKTapCard TAPSIGNER via EMU: 2LNJA-NIGMW-Q5AKC-KD5Q2> 
@@ -153,6 +157,10 @@ To see more detail, include the CVC on the command line.
 
 ## Most Useful Commands
 
+### cktap library
+
+`cktap --version`
+- Get the version of cktap library
 
 ### For SATSCARD
 
@@ -210,6 +218,7 @@ Options:
   -w, --wait               Waits until a card is in place.
   -v, --verbose            Show traffic with card.
   --pdb                    Prepare patient for surgery to remove bugs.
+  --version                Show the version and exit.
   --help                   Show this message and exit.
 
 Commands:

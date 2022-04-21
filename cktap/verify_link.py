@@ -2,9 +2,9 @@
 # (c) Copyright 2022 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
 import os
-from .compat import sha256s
-from .compat import CT_sig_to_pubkey
-from .utils import card_pubkey_to_ident, render_address
+from cktap.compat import sha256s
+from cktap.compat import CT_sig_to_pubkey
+from cktap.utils import card_pubkey_to_ident, render_address
 
 
 def all_keys(sig, md):

@@ -6,10 +6,12 @@
 #
 #
 
-from .utils import *
-from .constants import *
-from .exceptions import CardRuntimeError
-from .compat import hash160, CT_sig_verify
+from cktap.utils import *
+from cktap.constants import *
+from cktap.exceptions import CardRuntimeError
+from cktap.compat import hash160, CT_sig_verify
+from cktap.base58 import encode_base58_checksum
+
 
 class CKTapCard:
     #
@@ -201,7 +203,7 @@ class CKTapCard:
         assert self.is_tapsigner
         _, st = self.send_auth('xpub', cvc, master=master)
         xpub = st['xpub']
-        return base58.b58encode_check(xpub).decode('ascii')
+        return encode_base58_checksum(xpub)
 
     def get_pubkey(self, cvc):
         # TAPSIGNER only: Get the public key for current derived path
@@ -361,6 +363,7 @@ class CKTapCard:
         raise CardRuntimeError(f'500 on sign: {msg}', 500, msg)
 
     # TODO
+    # - 'sign_digest' command which does the retries needed
     # - 'wait' command which does delay needed, if any (no UX)
 
 # EOF

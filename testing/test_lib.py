@@ -40,7 +40,13 @@ def test_wrap():
     got = CT_bip32_derive(b'c'*32, b'\x02'*33, [1,2,3])
     assert got == b'\x03fo\xbb\xee\xc7\xb9hP\xa0\xa7\xff\xb7\x0c]\xf7\xec\xc4l\x9a\x89\x92\xd21\xcb\xb1{\x7f\xd9\xea\xff\xcb\x88'
 
-    
+    pk = b'c'*32
+    pub = b'\x02'*33
+    ss = CT_ecdh(pub, pk)
+    assert ss == b'\x10L^\xf4iY\x01<\xc5*.jZ\xcc&\xb97\xf7\xcf\x91\x0f\r\x80O{\xf2x\xef\x1e\xb2\xd9\xed'
+
+
+@pytest.mark.device
 def test_addr(dev):
     # core functions
     if not dev.tr.is_emulator:
@@ -54,6 +60,7 @@ def test_addr(dev):
         a2 = dev.address(faster=True)
         assert a2 == addr
 
+@pytest.mark.device
 def test_status_fields(dev):
     st = dev.send('status')
     assert st.pop('proto') == 1
@@ -101,7 +108,11 @@ def test_status_fields(dev):
 
     assert len(st) == 0, f'Extra fields: {st}'
 
+@pytest.mark.satscard
+@pytest.mark.device
 
+
+@pytest.mark.device
 def test_set_derivation(dev, known_cvc):
     if not dev.is_tapsigner: raise pytest.skip("satscard")
     with pytest.raises(ValueError) as err:
@@ -145,7 +156,9 @@ def test_sign_digest(dev, known_cvc):
         dev.sign_digest(known_cvc, 0, os.urandom(33), subpath="0/0")
     assert err.value.args[0] == "Digest must be exactly 32 bytes"
 
-    
+
+@pytest.mark.satscard
+@pytest.mark.device
 def test_dump_unauth(dev):
     # all slots can be dumped w/o CVC but limited info
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -171,6 +184,9 @@ def test_dump_unauth(dev):
 
         assert not d.keys(), repr(d)
 
+
+@pytest.mark.satscard
+@pytest.mark.device
 def test_dump_unsealed(dev, known_cvc):
     # dump details of all unsealed slots 
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
@@ -209,6 +225,9 @@ def test_dump_unsealed(dev, known_cvc):
         assert actual == d['pubkey']
         assert render_address(actual, st.get('testnet', False)) == derived_addr
 
+
+@pytest.mark.satscard
+@pytest.mark.device
 def test_get_privkey(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     
@@ -225,18 +244,25 @@ def test_get_privkey(dev, known_cvc):
     if not count:
         raise pytest.xfail("no unsealed slots")
 
+
+@pytest.mark.satscard
+@pytest.mark.device
 def test_get_usage_1(dev, known_cvc):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot, known_cvc)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
+
+@pytest.mark.satscard
+@pytest.mark.device
 def test_get_usage_2(dev):
     if dev.is_tapsigner: raise pytest.skip("tapsigner")
     for slot in range(NUM_SLOTS):
         (a, st, d) = dev.get_slot_usage(slot)
         assert st in { 'UNSEALED', 'unused', 'sealed' }
 
+@pytest.mark.device
 def test_url_from_card(dev):
     history = set()
     for n in range(10):
