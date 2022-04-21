@@ -121,6 +121,7 @@ def test_set_derivation(dev, known_cvc):
     assert dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # exactly 8 components - must pass
 
 
+@pytest.mark.device
 def test_sign_digest(dev, known_cvc):
     if not dev.is_tapsigner:
         try:
