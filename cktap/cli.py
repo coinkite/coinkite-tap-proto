@@ -253,9 +253,18 @@ def get_block_chain():
 @click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
-def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
-    "Sign a short text message (TODO -- INCOMPLETE)"
+@click.option('--subpath', '-p', type=str,metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path")
+def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
+    "Sign a short text message"
     from base64 import b64encode
+    # subpath validation
+    int_path = str2path(subpath) if subpath is not None else []
+    if len(int_path) > 2:
+        click.echo(f"Length of path {subpath} greater than 2", err=True)
+        sys.exit(1)
+    if not none_hardened(int_path):
+        click.echo(f"Subpath {subpath} contains hardened components", err=True)
+        sys.exit(1)
 
     card = get_card()
     cvc = cleanup_cvc(card, cvc)
@@ -273,8 +282,7 @@ def sign_message(cvc, message, path=2, verbose=True, just_sig=False, slot=0):
     # XXX on TS, this could work and be useful .. because we'd just share a classic address
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
-
-    ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md)
+    ses_key, resp = card.send_auth('sign', cvc, slot=slot, digest=md, subpath=int_path)
     expect_pub = resp['pubkey']
 
     if card.is_tapsigner:
