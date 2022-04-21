@@ -220,13 +220,13 @@ Commands:
   chain    Get which blockchain (Bitcoin/Testnet) is configured.
   change   [TS] Change the CVC code (PIN code)
   check    Verify you have the spending code (CVC) correct.
-  core     [SC] Show JSON needed to import private keys into Bitcoin Core
+  core     [SC] Show JSON needed to import keys into Bitcoin Core
   debug    Start interactive (local) debug session.
   derive   [TS] Change the subkey derivation path to use (shows xpub)
   dump     [SC] Show state of slot number indicated.
   json     [TS] Dump wallet values in JSON format similar to Coldcard...
   list     List all cards detected on any reader attached.
-  msg      Sign a short text message (TODO -- INCOMPLETE)
+  msg      Sign a short text message
   open     [SC] Get address and open associated local Bitcoin app to...
   path     [TS] Show the subkey derivation path in effect
   qr       [SC] Show current deposit address as a QR (or private key if...
