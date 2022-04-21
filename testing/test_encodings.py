@@ -27,5 +27,8 @@ def test_paths(case):
     with pytest.raises(ValueError) as err:
         str2path("m/84h/0h/-1")
     assert err.value.args[0] == 'Non-hardened path component out of range: -1'
+    with pytest.raises(ValueError) as err:
+        str2path("m/84h/-1h/0h")
+    assert err.value.args[0] == 'Hardened path component out of range: -1h'
 
 # EOF

@@ -347,7 +347,6 @@ class CKTapCard:
                 expect_pub = resp['pubkey']
                 sig = resp['sig']
                 if not CT_sig_verify(expect_pub, digest, sig):
-                    # this is probably not needed
                     continue
                 rec_sig = make_recoverable_sig(digest, sig, addr=None, expect_pubkey=expect_pub, is_testnet=self.is_testnet)
                 return rec_sig

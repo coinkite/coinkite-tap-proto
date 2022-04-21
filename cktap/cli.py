@@ -254,21 +254,11 @@ def get_block_chain():
 @click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
 @click.option('--subpath', '-p', type=str, metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path. Tapsigner only!")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
-    "Sign a short text message"
+    """Sign a short text message"""
     card = get_card()
     cvc = cleanup_cvc(card, cvc)
 
     message = message.encode('ascii') if not isinstance(message, bytes) else message
-
-    # TODO: 
-    # - using <https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki>
-    # - build a message digest, based on BIP-340 "tagged hash" and a fake to_sign txn
-    # - send digest to card
-    # - serialize result, which includes to_sign txn
-
-    # XXX until then, pretend we are living in a simple 2010 world.
-    # - I don't know of any tools which can be used to verify this signature... so it's useless
-    # XXX on TS, this could work and be useful .. because we'd just share a classic address
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
     try:
