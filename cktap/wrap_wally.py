@@ -1,4 +1,7 @@
 #
+# (c) Copyright 2022 by Coinkite Inc. This file is covered by license found in COPYING-CC.
+#
+#
 # Compatibility wrapper for "wallycore".
 #
 # see <https://wally.readthedocs.io/en/release_0.8.3/crypto/>

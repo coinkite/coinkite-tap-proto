@@ -1,4 +1,7 @@
 #
+# (c) Copyright 2022 by Coinkite Inc. This file is covered by license found in COPYING-CC.
+#
+#
 # test all available libraries and compare their results with each other and expected results (hardcoded data)
 # if only ecdsa is available it will be tested against expected results
 #
