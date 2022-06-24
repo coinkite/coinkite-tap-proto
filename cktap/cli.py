@@ -179,6 +179,7 @@ def main(**kws):
     Interact with SATSCARD and TAPSIGNER cards via NFC tap.
 
     Command marked [TS] are only for TAPSIGNER and [SC] only for SATSCARD.
+    All [TS] command also work on SATSCHIP (for artwork).
 
     You can use "bal", or "b" for "balance": any distinct prefix for all commands.
 
@@ -617,6 +618,8 @@ def export_to_core(cvc, pretty, slot):
     # - <https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki>
     # - <https://github.com/bitcoin/bips/blob/master/bip-0382.mediawiki>
 
+    # - sealed slots are 'watch only', you'll have to re-import after unseal
+
     card = get_card(only_satscard=True)
 
     # CVC is optional, but they probably want it
@@ -635,7 +638,7 @@ def export_to_core(cvc, pretty, slot):
         if slot and _slot not in slot:
             continue
         item = deepcopy(shared)
-        item["label"] = f"slot_{_slot}"
+        item["label"] = f"{card.card_ident}_slot{_slot}"
         session_key, here = card.send_auth('dump', cvc, slot=_slot)
 
         if here.get('used') is False:
@@ -644,8 +647,6 @@ def export_to_core(cvc, pretty, slot):
         pk = None
         addr = here.get("addr")
         if here.get('sealed') is True:
-            if cvc:
-                continue
             pubkey, addr = card.address(incl_pubkey=1)
 
         if 'privkey' in here:
