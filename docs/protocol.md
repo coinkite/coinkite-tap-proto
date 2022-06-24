@@ -10,6 +10,7 @@ This document describes the protocol for both the **SATSCARD<sup>&trade;</sup>**
   - [Message Encoding](#message-encoding)
   - [Testnet Support](#testnet-support)
   - [TAPSIGNER Differences (vs. SATSCARD)](#tapsigner-differences-vs-satscard)
+  - [SATSCHIP Differences](#satschip-differences)
   - [Certificates](#certificates)
     - [Certificate Comments](#certificate-comments)
   - [Private Key Picking](#private-key-picking)
@@ -20,6 +21,7 @@ This document describes the protocol for both the **SATSCARD<sup>&trade;</sup>**
   - [Authenticating Commands with CVC](#authenticating-commands-with-cvc)
     - [CVC Length & Content](#cvc-length--content)
     - [Authentication Failures](#authentication-failures)
+  - [First Step: ISO Applet Select](#first-step3A-iso-applet-select)
   - [Shared Commands](#shared-commands)
     - [`status`](#status)
       - [TAPSIGNER `status` Differences](#tapsigner-status-differences)
@@ -103,6 +105,14 @@ Differences unique to TAPSIGNER are called out and described throughout the docu
 
 See [TAPSIGNER Variant Overview](#tapsigner-variant-overview) for more information.
 
+## SATSCHIP Differences
+
+The SATSCHIP version is exactly like a TAPSIGNER, except it ships from the
+factory with a starting PIN of `123456` and the AES key for backups is not
+provided. The URL provided when tapped, will lead to `satschip.com` rather
+than `tapsigner.com`.
+
+Learn more about the SATSCHIP variant at: [SATSCHIP.com](https://satschip.com)
 
 ## Certificates
 
@@ -208,6 +218,28 @@ TAPSIGNER's initial CVC is also printed on the card, but can be changed later ac
 A command with the wrong CVC value will fail, returning error 401 (bad auth). Two more immediate retries are permitted. If those attempts fail, a 15-second delay between attempts takes effect. Attempts before 15 seconds passes will fail and return error 429 (rate limited).
 
 The status value `auth_delay` shows the number of seconds required between attempts. Use the [`wait` command](#wait) to pass the time. Another attempt is allowed after the delay passes. If the CVC value is correct, normal operation begins. If the CVC value is incorrect, the 15-second delay between attempts continues.
+
+
+## First Step: ISO Applet Select
+
+Before any other commands are sent to a card, you must first do an "ISO
+Applet Select". As long as the card remains powered-up (in the RF
+field) you do not need to repeat this command.
+
+Send an APDU with: `cls=0` `ins=0xA4` `p1=4` and data body of our APPID,
+which is: `f0436f696e6b697465434152447631` (or `b'\xf0CoinkiteCARDv1'`).
+
+The full request is as follows:
+
+    >> 00 a4 04 00 0f f0436f696e6b697465434152447631
+
+The card will respond with 0x9000 (status word for 'okay') and the
+CBOR message body that would normally be returned from a `status`
+command (see below).
+
+Note that if you omit this step, all the commands documented below
+will respond with status word (SW) of 0x6d00, meaning "Instruction
+code not supported or invalid".
 
 
 ## Shared Commands
