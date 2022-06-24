@@ -722,10 +722,11 @@ Response for a used slot with XCVC provided:
 ```python
 {
     'slot': 0,                     # which slot is being dumped
-    'privkey': (32 bytes),          # private key for spending (for addr)
-    'chain_code': (32 bytes),       # nonce provided by customer originally
-    'master_pk': (32 bytes),        # master private key for this slot (was picked by card)
-    'tampered': (bool),             # flag that slots unsealed for unusual reasons (absent if false)
+    'privkey': (32 bytes),         # private key for spending (for addr)
+    'pubkey': (33 bytes),          # public key 
+    'chain_code': (32 bytes),      # nonce provided by customer originally
+    'master_pk': (32 bytes),       # master private key for this slot (was picked by card)
+    'tampered': (bool),            # flag that slots unsealed for unusual reasons (absent if false)
     'card_nonce': (16 bytes)       # new nonce value, for NEXT command (not this one)
 }
 ```
@@ -747,7 +748,7 @@ If the XCVC (and/or `epubkey`) is not provided, then the response contains the f
 }
 ```
 
-The response for an unused slot:
+The response for an unused slot (no XCVC provided):
 
 ```python
 {
@@ -757,17 +758,19 @@ The response for an unused slot:
 }
 ```
 
-For the currently active slot, the response is:
+For the currently active slot, the response is (no CVC provided):
 
 ```python
 {
     'slot': 3,                     # which slot is being dumped
     'sealed': True,
-    'addr': 'bc1qsqu64khv___qf735wvl3lh8',   # payment address, middle chars blanked out with 3 underscores
     'card_nonce': (16 bytes)       # new nonce value, for NEXT command (not this one)
 }
 ```
 
+In summary, without the CVC, the dump command returns just the
+sealed/unsealed/unused status for each slot, with the excepton of
+unsealed slots where the address in full is also provided.
 
 ## TAPSIGNER-Only Commands
 
@@ -804,7 +807,7 @@ Use ASCII-only, and perhaps only digits, to maximize compatibility between walle
 
 ### `xpub`
 
-Provides the current XPUB (BIP-32 Serialized), either at the top level (master)
+Provides the current XPUB (BIP-32 serialized), either at the top level (master)
 or the derived key in use (see 'path' value in status response).
 
 ```python
