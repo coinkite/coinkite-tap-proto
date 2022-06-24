@@ -120,14 +120,13 @@ class CKTapNFCTransport(CKTapTransportABC):
     def __init__(self, card_conn):
         # Check connection they gave us
         # - if you don't have that, use find_cards instead
-        atr = card_conn.getATR()
-        assert atr == CARD_ATR, "wrong ATR from card"
-
+        # - do not verify ATR here because of factory production needs
         self._conn = card_conn
 
         # Perform "ISO Select" to pick our app
         # - 00 a4 04 00 (APPID)
-        # - probably optional
+        # - required to get started
+        # - returns same CBOR as a 'status' command (ignored here)
         sw, resp = self._apdu(0x00, 0xa4, APP_ID, p1=4)
         assert sw == SW_OKAY, "ISO app select failed"
 

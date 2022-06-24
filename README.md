@@ -125,7 +125,7 @@ See [README for emulator](emulator/README.md).
 >>> from cktap.transport import find_first
 >>> card = find_first()
 >>> print(card)
-<CKTapCard SATSCARD: 26NKY-RWPK4-65YR7-BU4WL>
+<CKTapCard SATSCARD via NFC: 26NKY-RWPK4-65YR7-BU4WL>
 >>> card.address()
 'bc1q7h0u5yn8y4pajn94ze4gnhz487c8ysvekusqj5'
 ```

@@ -6,13 +6,11 @@
 # Implement the higher-level protocol for cards, both TAPSIGNER and SATSCARD.
 #
 #
-
 from cktap.utils import *
 from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
 from cktap.compat import hash160, CT_sig_verify
 from cktap.base58 import encode_base58_checksum
-
 
 class CKTapCard:
     #

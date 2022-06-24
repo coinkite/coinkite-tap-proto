@@ -1,4 +1,9 @@
+# 1.0.1
+
+- tiny change to support production needs, where ATR value is in transition.
+
 # 1.0.0
+
 - default crypto library is now pure python and in library itself, which means there is no need to have any crypto library dependency. However we provide wrappers for coincurve, wallycore and pysecp256k1 if one wants to use them.
 - added wrapper for pysecp256k1 library
 - new `cktap --version` command to get cktap library version during runtime
@@ -6,8 +11,10 @@
 - minor bug fixes and improvements
 
 # 0.9.1
+
 - minor bug fixes
 
 # 0.9.0
+
 - first public release
 
