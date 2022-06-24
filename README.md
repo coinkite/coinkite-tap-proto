@@ -18,8 +18,8 @@ Examples/Libraries in other languages will be added when available.
   - [Protocol specification](docs/protocol.md)
   - [NFC specification](docs/nfc-spec.md)
   - [Developer's Guide and Usage Hints for TAPSIGNER](docs/tapsigner-hints.md)
-- [Emulator README](emulator/README.md)
-- [Testing README](testing/README.md)
+- [Emulator README](emulator/)
+- [Testing README](testing/)
 
 
 # Install
