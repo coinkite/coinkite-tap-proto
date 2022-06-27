@@ -1,3 +1,7 @@
+# 1.1.0
+
+- changes to support SATSCHIP, including upload of metadata and artwork.
+
 # 1.0.1
 
 - tiny change to support production needs, where ATR value is in transition.

@@ -317,7 +317,7 @@ class CKTapCard:
 
         return (addr, status, here)
 
-    def sign_digest(self, cvc: str, slot: int, digest: bytes, subpath: str = None) -> bytes:
+    def sign_digest(self, cvc: str, digest: bytes, slot: int=0, subpath: str=None) -> bytes:
         """
         Sign 32 bytes digest and return 65 bytes long recoverable signature.
 
@@ -329,20 +329,26 @@ class CKTapCard:
         """
         if len(digest) != 32:
             raise ValueError("Digest must be exactly 32 bytes")
+
         if not self.is_tapsigner and subpath:
             raise ValueError("Cannot use 'subpath' option for SATSCARD")
+
         # subpath validation
         int_path = str2path(subpath) if subpath is not None else []
         if len(int_path) > 2:
-            raise ValueError(f"Length of path {subpath} greater than 2")
+            raise ValueError(f"Length of path {subpath} is greater than 2")
+
         if not none_hardened(int_path):
             raise ValueError(f"Subpath {subpath} contains hardened components")
+
         if self.is_tapsigner:
             slot = 0
+
         for _ in range(5):
             try:
                 if self.is_tapsigner:
-                    ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest, subpath=int_path)
+                    ses_key, resp = self.send_auth('sign', cvc, slot=slot,
+                                                            digest=digest, subpath=int_path)
                 else:
                     ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest)
                 expect_pub = resp['pubkey']
@@ -353,16 +359,16 @@ class CKTapCard:
                 return rec_sig
             except CardRuntimeError as err:
                 if err.code == 205:  # unlucky number
-                    # status to update card nonce
+                    # get status to update card's nonce
                     self.send('status')
                     continue
                 raise
+
         # probability that we get here is very close to zero
         msg = "Failed to sign digest after 5 retries. Try again."
         raise CardRuntimeError(f'500 on sign: {msg}', 500, msg)
 
     # TODO
-    # - 'sign_digest' command which does the retries needed
-    # - 'wait' command which does delay needed, if any (no UX)
+    # - 'wait' command which does delay needed, if any (but has no UX)
 
 # EOF

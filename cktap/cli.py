@@ -43,7 +43,7 @@ def fail(msg):
     click.echo(f"FAILURE: {msg}", err=True)
     sys.exit(1)
 
-def get_card(only_satscard=False, only_tapsigner=False):
+def get_card(only_satscard=False, only_tapsigner=False, only_chip=False):
     # Pick a card to work with
     global global_opts
     ci_filter = (global_opts.get('card_ident') or '').upper()
@@ -63,12 +63,14 @@ def get_card(only_satscard=False, only_tapsigner=False):
                     continue
             if only_satscard and c.is_tapsigner: continue
             if only_tapsigner and not c.is_tapsigner: continue
+            if only_chip and not c.is_tapsigner: continue
             return c
 
         if not wait_for_it: 
             subset = 'matching cards' if ci_filter else 'suitable cards'
             if only_tapsigner: subset = 'TAPSIGNER cards' 
             if only_satscard: subset = 'SATSCARD'
+            if only_chip: subset = 'SATSCHIP'
             fail(f"No {subset} found. Is it in place on reader?")
 
         if first:
@@ -265,7 +267,7 @@ def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
     try:
-        rec_sig = card.sign_digest(cvc=cvc, slot=slot, digest=md, subpath=subpath)
+        rec_sig = card.sign_digest(cvc=cvc, digest=md, slot=slot, subpath=subpath)
     except ValueError as err:
         fail(str(err))
 
@@ -534,7 +536,7 @@ def dump_key_info(slot_num, privkey, wif=None, is_testnet=False):
 @click.option('--new-chain-code', '-n', is_flag=True, 
                 help="Pick a fresh chain code randomly [TS=default].")
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
-def setup_slot(cvc, chain_code, new_chain_code):
+def setup_slot(cvc=None, chain_code=None, new_chain_code=True):
     "Setup with a fresh private key."
 
     card = get_card()
@@ -789,8 +791,6 @@ read -p "Key from back of card: " KEY
 base64 -d <<END-OF-DATA | openssl aes-128-ctr -d -iv 0 -K $KEY | hexdump -C
 {b6}
 END-OF-DATA
-echo "Look for 'chain_code' and 'priv_key' above."
-echo "It's CBOR encoded data, visit https://cbor.io to decode."
 ''', file=fp)
 
         print(f"Wrote {fp.tell()} bytes to: {fp.name}")
@@ -819,5 +819,198 @@ def do_unlock():
             for n in range(card.auth_delay):
                 card.send('wait')
                 bar.update(1)
+
+@main.command('upload')
+@click.argument('cvc', default='123456', type=str, metavar="(PIN code)", required=False)
+@click.option('--localhost', '-l', is_flag=True, help="Upload to local dev server")
+@click.option('--skip-prompts', '-q', is_flag=True, help="Skip prompts for new values")
+@click.option('--image', '-i', type=click.Path(exists=True, dir_okay=False),
+                        help="Image to upload (PNG or JPEG)", required=False)
+def upload_artwork(cvc, image, localhost, skip_prompts):
+    "[SATSCHIP] Upload an image and artwork's metadata to public website"
+    from urllib.parse import urlparse
+    import cbor2, requests, datetime
+    from . import __version__
+
+    card = get_card(only_chip=True)
+    cvc = cleanup_cvc(card, cvc)
+
+    host = urlparse(card.get_nfc_url())
+    if 'satschip.com' not in host.hostname:
+        # might have TAPSIGNER up to here
+        click.echo(f"Sorry, a SATSCHIP is required for this.", err=True)
+        sys.exit(1)
+
+    fname = f'{card.card_ident}.cbor'
+    if localhost:
+        host = host._replace(netloc='127.0.0.1:5077', scheme='http')
+    url = host._replace(path=f'/data/{card.card_ident}', query='', fragment='').geturl()
+
+    #print(f"Uploaded data will be posted to:\n  {url}")
+
+    while 1:
+        st = card.get_status()
+        path = st.get('path', None)
+        if path is not None:
+            break
+
+        if not click.confirm(f'No private key picked yet. Pick now?', default=True):
+            click.echo("Private required to continue.", err=True)
+            sys.exit(1)
+            continue
+
+        # do basic setup now
+        args = dict(chain_code=sha256s(sha256s(os.urandom(128))), slot=0)
+        ses_key, resp = card.send_auth('new', cvc, **args)
+
+    # enforce a default for subkey
+    EXPECT_PATH = 'm/84h/0h/0h'
+    if path2str(path) != 'm/84h/0h/0h':
+        click.echo(f"Require default path of {EXPECT_PATH}", err=True)
+        sys.exit(1)
+    subpath = ''
+
+    my_pubkey = card.get_pubkey(cvc)
+    my_address = render_address(my_pubkey)
+
+    ses = requests.Session()
+    #ses.headers['user-agent'] = f'cktap/{__version__}'
+
+    # inspired somewhat by <https://support.google.com/culturalinstitute/partners/answer/7574684>
+
+    META_VERSION = 'SATSCHIP_META_v1'
+    MAX_IMG_SIZE = 2*1024*1024
+    fields = [
+        ( 'image', 'Image file' ),
+        ( 'creator', 'Creator (artist)' ),
+        ( 'creator_url', 'Creator\'s homepage' ),
+        ( 'title', 'Title of Work' ),
+        ( 'title_url', 'Link for title (for more info about work itself)'),
+        ( 'description', 'Description' ),
+        ( 'date_created', 'Creation date (text)' ),
+        ( 'medium', 'Medium (oil on canvaas)' ),
+        ( 'rarity', 'Rarity (3 of 100)' ),
+        ( 'owner', 'Owner' ),
+        ( 'owner_url', 'URL for Owner'),
+        ( 'is_public', 'Show in public gallery'),
+    ]
+
+    # collect data to be stored.
+    data = dict((fn, None) for fn,_ in fields)
+    data['is_public'] = True
+    data['created_at'] = datetime.datetime.now()
+
+    # see if we can restore a previous upload, or run
+    try:
+        print("Checking for previousiously uploaded values... ", end='')
+        old = ses.get(url + '.cbor').body()
+        seq = cbor2.loads(old)
+
+        if seq[0] != META_VERSION or len(seq[2]) == 65:
+            raise ValueError('version?')
+
+        # assume server verified signature
+        data.update(cbor2.loads(seq[1]))
+        print(" Done")
+    except:
+        print(" (failed or got none)")
+
+    if os.path.exists(fname):
+        print(f"Loading from previous attempt... {fname}")
+        try:
+            old = open(fname, 'rb').read()
+            seq = cbor2.loads(old)
+            if seq[0] == META_VERSION and len(seq[2]) == 65:
+                data.update(cbor2.loads(seq[1]))
+        except:
+            raise
+            print("(failed) ignoring previous run's data")
+
+    while not skip_prompts:
+        print("\nEnter updated metadata values. Any may be left blank and all are optional.\n\n")
+
+        for fn, label in fields:
+            if fn == 'image':
+                if image:
+                    print(f"Image will be from: {image}")
+                elif data[fn]:
+                    print(f"Image will not be changed.")
+                    continue
+                else:
+                    image = click.prompt('Enter image file to use',
+                                    type=click.Path(exists=False, dir_okay=False),
+                                    default='')
+                    if not image: continue
+
+                # will let server validate the image contents because I don't 
+                # want to add Pillow to dependances here
+                data[fn] = open(image, 'rb').read()
+
+                if len(data[fn]) >= MAX_IMG_SIZE:
+                    print(f"Image file must be less than {int(MAX_IMG_SIZE/1E6)} megabytes.")
+                    sys.exit(1)
+
+            elif fn.startswith('is_'):
+                data[fn] = click.confirm(label, default=data[fn])
+            else:
+                # text values
+                while 1:
+                    v = click.prompt(label, default=data[fn] or '')
+                    v = v.strip()
+                    if '_url' in fn:
+                        try:
+                            v = urlparse(v).geturl()
+                        except:
+                            print("bad url")
+                            continue
+
+                    data[fn] = v or None
+                    break
+
+        # print it
+        click.clear()
+        print("Meta data values:\n")
+
+        for fn, label in fields:
+            if not data.get(fn, None):
+                continue
+
+            print(f"  {label}: ", end='')
+
+            if fn == 'image':
+                print('(%d bytes)' % len(data[fn]))
+            else:
+                print(data[fn])
+
+        print('\n\n')
+        if click.confirm("All correct?", default=True): break
+        if click.confirm("Quit now?"): sys.exit(0)
+
+    data['pubkey'] = my_pubkey
+    data['address'] = my_address
+    data['card_ident'] = card.card_ident
+    data['applet_version'] = card.applet_version
+    data['birth_height'] = card.birth_height
+    data['updated_at'] = datetime.datetime.now()
+
+    body = cbor2.dumps(data, timezone=datetime.timezone.utc)
+
+    md = sha256s(sha256s(body))
+
+    print(f"Signing metadata with private key from SATSCHIP...", end='')
+    rec_sig = card.sign_digest(cvc=cvc, digest=md, subpath=subpath)
+    print(f" done\n")
+
+    complete = cbor2.dumps( (META_VERSION, body, rec_sig) )
+
+    open(fname, 'wb').write(complete)
+
+    print(f"Data captured into local file; {fname}")
+
+    full_url = url+'.cbor/'+host.fragment
+
+    if click.confirm("Upload to server?", default=True):
+        resp = ses.put(full_url, data=complete, headers={'content-type': 'application/cbor'})
+        resp.raise_for_status()
 
 # EOF
