@@ -1,6 +1,8 @@
 #
 # (c) Copyright 2022 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
+# Used with permission from <https://github.com/scgbckbone/btc-hd-wallet/tree/master/btc_hd_wallet>
+#
 
 import hmac
 import hashlib
