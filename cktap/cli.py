@@ -863,40 +863,23 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         args = dict(chain_code=sha256s(sha256s(os.urandom(128))), slot=0)
         ses_key, resp = card.send_auth('new', cvc, **args)
 
-    # enforce a default for subkey
+    # enforce a default for which subkey
     EXPECT_PATH = 'm/84h/0h/0h'
     if path2str(path) != 'm/84h/0h/0h':
         click.echo(f"Require default path of {EXPECT_PATH}", err=True)
         sys.exit(1)
-    subpath = ''
+    subpath = '420/69'
 
-    my_pubkey = card.get_pubkey(cvc)
+    my_pubkey = card.get_pubkey(cvc, subpath=subpath)
     my_address = render_address(my_pubkey)
 
     ses = requests.Session()
     #ses.headers['user-agent'] = f'cktap/{__version__}'
 
-    # inspired somewhat by <https://support.google.com/culturalinstitute/partners/answer/7574684>
-
-    META_VERSION = 'SATSCHIP_META_v1'
-    MAX_IMG_SIZE = 2*1024*1024
-    fields = [
-        ( 'image', 'Image file' ),
-        ( 'creator', 'Creator (artist)' ),
-        ( 'creator_url', 'Creator\'s homepage' ),
-        ( 'title', 'Title of Work' ),
-        ( 'title_url', 'Link for title (for more info about work itself)'),
-        ( 'description', 'Description' ),
-        ( 'date_created', 'Creation date (text)' ),
-        ( 'medium', 'Medium (oil on canvaas)' ),
-        ( 'rarity', 'Rarity (3 of 100)' ),
-        ( 'owner', 'Owner' ),
-        ( 'owner_url', 'URL for Owner'),
-        ( 'is_public', 'Show in public gallery'),
-    ]
+    from .uploads import META_VERSION, MAX_IMG_SIZE, meta_fields, all_fields
 
     # collect data to be stored.
-    data = dict((fn, None) for fn,_ in fields)
+    data = dict((fn, None) for fn,_ in meta_fields)
     data['is_public'] = True
     data['created_at'] = datetime.datetime.now()
 
@@ -926,10 +909,15 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
             raise
             print("(failed) ignoring previous run's data")
 
+    for k in list(data.keys()):
+        if k not in all_fields:
+            print(f"Removing obsolete field: {k}")
+            del data[k]
+
     while not skip_prompts:
         print("\nEnter updated metadata values. Any may be left blank and all are optional.\n\n")
 
-        for fn, label in fields:
+        for fn, label in meta_fields:
             if fn == 'image':
                 if image:
                     print(f"Image will be from: {image}")
@@ -971,7 +959,7 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         click.clear()
         print("Meta data values:\n")
 
-        for fn, label in fields:
+        for fn, label in meta_fields:
             if not data.get(fn, None):
                 continue
 
@@ -987,30 +975,40 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         if click.confirm("Quit now?"): sys.exit(0)
 
     data['pubkey'] = my_pubkey
-    data['address'] = my_address
     data['card_ident'] = card.card_ident
     data['applet_version'] = card.applet_version
     data['birth_height'] = card.birth_height
     data['updated_at'] = datetime.datetime.now()
 
+    # include full certifcate chain + a signature to prove it.
+    print(f"Signing cert chain with card's private key...", end='', flush=1)
+    chain = card.send('certs')
+    n = pick_nonce()
+    check = card.send('check', nonce=n)
+    data['certs'] = dict(chain=chain, nonce=n, sig=check)
+    print(f" done")
+
+    assert set(data.keys()) == set(all_fields)
+
     body = cbor2.dumps(data, timezone=datetime.timezone.utc)
 
     md = sha256s(sha256s(body))
 
-    print(f"Signing metadata with private key from SATSCHIP...", end='')
+    print(f"Signing metadata with private key from SATSCHIP...", end='', flush=1)
     rec_sig = card.sign_digest(cvc=cvc, digest=md, subpath=subpath)
-    print(f" done\n")
+    print(f" done")
 
     complete = cbor2.dumps( (META_VERSION, body, rec_sig) )
 
     open(fname, 'wb').write(complete)
 
-    print(f"Data captured into local file; {fname}")
+    print(f"\nData captured into local file: {fname}")
 
     full_url = url+'.cbor/'+host.fragment
 
     if click.confirm("Upload to server?", default=True):
         resp = ses.put(full_url, data=complete, headers={'content-type': 'application/cbor'})
-        resp.raise_for_status()
+        print("Server says:\n")
+        print(resp.text)
 
 # EOF

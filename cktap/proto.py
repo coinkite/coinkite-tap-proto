@@ -204,17 +204,27 @@ class CKTapCard:
         xpub = st['xpub']
         return encode_base58_checksum(xpub)
 
-    def get_pubkey(self, cvc):
+    def get_pubkey(self, cvc, subpath:str=None):
         # TAPSIGNER only: Get the public key for current derived path
         # - on TS, it's an authenticated command: 'read'
         # - equiv. to get_xpub(master=False) and looking at part of that value
-        # - fairly pointless
+        # - if subpath is provided, fetch the xpub (derived on-card)
+        #   and apply further bip32 (unhardened) derivation
         assert self.is_tapsigner
-        n = pick_nonce()
-        st = self.send('status')
-        ses_key, rr = self.send_auth('read', cvc, nonce=n)
+        if not subpath:
+            n = pick_nonce()
+            st = self.send('status')
+            ses_key, rr = self.send_auth('read', cvc, nonce=n)
 
-        return recover_pubkey(st, rr, n, ses_key)
+            return recover_pubkey(st, rr, n, ses_key)
+        else:
+            xpub = self.get_xpub(cvc, master=False)
+            from .bip32 import PubKeyNode
+            hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
+            sk = hd.get_extended_pubkey_from_path(str2path(subpath))
+
+            return sk.sec()
+            
 
     def make_backup(self, cvc):
         # read the backup file; gives ~100 bytes to be kept long term
