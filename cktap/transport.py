@@ -54,8 +54,9 @@ def find_cards():
         if atr == CARD_ATR:
             tr = CKTapNFCTransport(conn)
             yield CKTapCard(tr)
-        else:
-            print(f"Got ATR: {atr}")
+        elif VERBOSE:
+            # could legit be any other NFC card lying around
+            print(f"Got unexpected ATR: {atr}")
 
 def find_first():
     # operate on the first card we can find

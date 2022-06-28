@@ -1,4 +1,8 @@
-# 1.1.0
+# 1.0.3
+
+- new 'offline' subset of requirements, for things like servers w/o NFC
+
+# 1.0.2
 
 - changes to support SATSCHIP, including upload of metadata and artwork.
 
