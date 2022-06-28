@@ -350,6 +350,8 @@ class CKTapCard:
                     ses_key, resp = self.send_auth('sign', cvc, slot=slot,
                                                             digest=digest, subpath=int_path)
                 else:
+                    # Important: do not pass subpath argument to a SATSCARD
+                    # where it is not applicable and triggers a bug in early versions.
                     ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest)
                 expect_pub = resp['pubkey']
                 sig = resp['sig']
