@@ -27,17 +27,15 @@ from cktap import __version__
 from setuptools import setup
 
 # these minimum versions are tested, some earlier values would probably work too.
+# - you will need pyscard>=2.0.2 if doing real NFC w/ cards, but see transport.py
 requirements = [
     'cbor2>=5.4.1',
-    'pyscard>=2.0.2',
 ]
-
-# for servers that work w/ offline data and dont have NFC readers
-offline_requirements = [r in requirements if 'pyscard' not in r]
 
 requests_socks = 'requests[socks]>=2.26.0'
 
 cli_requirements = [
+    'pyscard>=2.0.2',
     'click>=8.0.3',
     'pyqrcode>=1.2.1',
     'pypng>=0.0.21',
@@ -45,17 +43,18 @@ cli_requirements = [
 ]
 
 test_requirements = [
+    'pyscard>=2.0.2',
     'pytest',
     requests_socks,
 ]
 
 # only for developers playing with crypto libraries - cross library comparisons
-test_plus_requirements = [
+test_plus_requirements = test_requirements + [
     'coincurve>=15.0.1',
     'wallycore>=0.8.2',
     # needs libsecp256k1 installed (check project README.md)
     #'python-secp256k1@git+https://github.com/scgbckbone/python-secp256k1.git',
-] + test_requirements
+]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -70,7 +69,6 @@ setup(
         'cli': cli_requirements,
         'test': test_requirements,
         'test_plus': test_plus_requirements,
-        'offline': offline_requirements,
     },
     url='https://github.com/coinkite/coinkite-tap-proto',
     author='Coinkite Inc.',
