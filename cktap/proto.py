@@ -258,11 +258,11 @@ class CKTapCard:
         # but that slot must be used and sealed (note: unauthed req here)
         resp = self.send('dump', slot=target)
 
+        if resp.get('used', None) == False:
+            raise RuntimeError(f"Slot {target} has not been used yet.")
+
         if resp.get('sealed', None) == False:
             raise RuntimeError(f"Slot {target} has already been unsealed.")
-
-        if resp.get('sealed', None) != True:
-            raise RuntimeError(f"Slot {target} has not been used yet.")
 
         ses_key, resp = self.send_auth('unseal', cvc, slot=target)
 

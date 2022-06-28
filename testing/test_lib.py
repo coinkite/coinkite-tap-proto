@@ -131,30 +131,30 @@ def test_sign_digest(dev, known_cvc):
             pass
     for _ in range(10):
         msg_digest = sha256s(sha256s(os.urandom(32)))
-        sig = dev.sign_digest(known_cvc, 0, msg_digest)
+        sig = dev.sign_digest(cvc=known_cvc, slot=0, digest=msg_digest)
         assert len(sig) == 65
 
     if dev.is_tapsigner:
         for i in range(10):
             msg_digest = sha256s(sha256s(os.urandom(32)))
-            sig = dev.sign_digest(known_cvc, 0, msg_digest, subpath=f"{i}/{i+100}")
+            sig = dev.sign_digest(cvc=known_cvc, slot=0, digest=msg_digest, subpath=f"{i}/{i+100}")
             assert len(sig) == 65
 
         with pytest.raises(ValueError) as err:
-            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0/0")
-        assert err.value.args[0] == 'Length of path 0/0/0 greater than 2'
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0/0")
+        assert err.value.args[0] == 'Length of path 0/0/0 is greater than 2'
         with pytest.raises(ValueError) as err:
-            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0h")
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0h")
         assert err.value.args[0] == "Subpath 0/0h contains hardened components"
     else:
         # SATSCARD does not support subpath
         with pytest.raises(ValueError) as err:
-            dev.sign_digest(known_cvc, 0, sha256s(os.urandom(32)), subpath="0/0")
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0")
         assert err.value.args[0] == "Cannot use 'subpath' option for SATSCARD"
 
     # digest len not equal to 32
     with pytest.raises(ValueError) as err:
-        dev.sign_digest(known_cvc, 0, os.urandom(33), subpath="0/0")
+        dev.sign_digest(cvc=known_cvc, slot=0, digest=os.urandom(33), subpath="0/0")
     assert err.value.args[0] == "Digest must be exactly 32 bytes"
 
 
