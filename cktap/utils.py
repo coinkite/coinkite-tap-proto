@@ -108,21 +108,25 @@ def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     # Verify the certificate chain works, returns label for pubkey recovered from signatures.
     # - raises on any verification issue
     #
-    signatures = certs_resp['cert_chain']
-    assert len(signatures) >= 2
+    return verify_certs_ll(status_resp['card_nonce'], 
+                status_resp['pubkey'], my_nonce,
+                certs_resp['cert_chain'], check_resp['auth_sig'])
 
-    r = status_resp
-    msg = b'OPENDIME' + r['card_nonce'] + my_nonce
+def verify_certs_ll(card_nonce, card_pubkey, my_nonce, cert_chain, signature):
+    # Lower-level version with just the facts coming in... 
+    assert len(cert_chain) >= 2
+
+    msg = b'OPENDIME' + card_nonce + my_nonce
     assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
-    pubkey = r['pubkey']
 
     # check card can sign with indicated key
-    ok = CT_sig_verify(pubkey, sha256s(msg), check_resp['auth_sig'])
+    ok = CT_sig_verify(card_pubkey, sha256s(msg), signature)
     if not ok:
         raise RuntimeError("bad sig in verify_certs")
 
     # follow certificate chain to factory root
-    for sig in signatures:
+    pubkey = card_pubkey
+    for sig in cert_chain:
         pubkey = CT_sig_to_pubkey(sha256s(pubkey), sig)
 
     if pubkey not in FACTORY_ROOT_KEYS:

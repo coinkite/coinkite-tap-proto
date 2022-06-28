@@ -876,10 +876,10 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
     ses = requests.Session()
     #ses.headers['user-agent'] = f'cktap/{__version__}'
 
-    from .uploads import META_VERSION, MAX_IMG_SIZE, meta_fields, all_fields
+    from .uploads import META_VERSION, MAX_IMG_SIZE, META_FIELDS, ALL_FIELDS
 
     # collect data to be stored.
-    data = dict((fn, None) for fn,_ in meta_fields)
+    data = dict((fn, None) for fn,_ in META_FIELDS)
     data['is_public'] = True
     data['created_at'] = datetime.datetime.now()
 
@@ -910,14 +910,14 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
             print("(failed) ignoring previous run's data")
 
     for k in list(data.keys()):
-        if k not in all_fields:
+        if k not in ALL_FIELDS:
             print(f"Removing obsolete field: {k}")
             del data[k]
 
     while not skip_prompts:
         print("\nEnter updated metadata values. Any may be left blank and all are optional.\n\n")
 
-        for fn, label in meta_fields:
+        for fn, label in META_FIELDS:
             if fn == 'image':
                 if image:
                     print(f"Image will be from: {image}")
@@ -959,7 +959,7 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         click.clear()
         print("Meta data values:\n")
 
-        for fn, label in meta_fields:
+        for fn, label in META_FIELDS:
             if not data.get(fn, None):
                 continue
 
@@ -975,20 +975,15 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         if click.confirm("Quit now?"): sys.exit(0)
 
     data['pubkey'] = my_pubkey
-    data['card_ident'] = card.card_ident
+    data['card_ident'] = card.card_ident        # redundent, but useful
+    data['card_pubkey'] = card.card_pubkey
     data['applet_version'] = card.applet_version
     data['birth_height'] = card.birth_height
     data['updated_at'] = datetime.datetime.now()
+    data['cert_chain'] = card.send('certs')['cert_chain']
 
-    # include full certifcate chain + a signature to prove it.
-    print(f"Signing cert chain with card's private key...", end='', flush=1)
-    chain = card.send('certs')
-    n = pick_nonce()
-    check = card.send('check', nonce=n)
-    data['certs'] = dict(chain=chain, nonce=n, sig=check)
-    print(f" done")
 
-    assert set(data.keys()) == set(all_fields)
+    assert set(data.keys()) == set(ALL_FIELDS)
 
     body = cbor2.dumps(data, timezone=datetime.timezone.utc)
 
@@ -998,7 +993,13 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
     rec_sig = card.sign_digest(cvc=cvc, digest=md, subpath=subpath)
     print(f" done")
 
-    complete = cbor2.dumps( (META_VERSION, body, rec_sig) )
+    # a signature to prove this card_pubkey saw the body's hash
+    print(f"Signing cert chain with card's private key...", end='', flush=1)
+    card_nonce = card.card_nonce
+    check = card.send('check', nonce=md[0:USER_NONCE_SIZE])
+    print(f" done")
+
+    complete = cbor2.dumps( (META_VERSION, body, rec_sig, card_nonce, check['auth_sig']) )
 
     open(fname, 'wb').write(complete)
 

@@ -1,3 +1,9 @@
+# 1.0.4
+
+- remove pyscard as hard requirement, so possible to use library on web servers
+- reworks contents of upload file for SATSCHIP
+- refactor `verify_certs()`
+
 # 1.0.3
 
 - new 'offline' subset of requirements, for things like servers w/o NFC
