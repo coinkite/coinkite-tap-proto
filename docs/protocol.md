@@ -1149,14 +1149,6 @@ A factory-programmed, 16-byte hex value (128-bit key) for AES is printed on the 
 
 The `sign digest` command is accepted while the slot is still sealed (CVC required). The `unseal` command is not implemented.
 
-New concept of `card_ident` value:
--  `SHA256(card_pubkey)`
-- Does not change for the lifetime of the card
-- Verified by NFC response in tap and shows on the website
-- Effectively the serial number for card, but provable by signature
-- CONCERN: it looks like the AES key and if it is 256 bits, it is too long
-
-
 ## New Commands
 
 `backup`
