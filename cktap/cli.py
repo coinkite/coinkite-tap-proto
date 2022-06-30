@@ -740,9 +740,7 @@ def json_dump(cvc):
     card = get_card(only_tapsigner=True)
     cvc = cleanup_cvc(card, cvc)
 
-    path = card.get_derivation()
-    assert path.startswith('m')
-    path_comps = path.split('/')[1:]
+    path_comps = card._get_derivation()
 
     xfp = card.get_xfp(cvc).hex().upper()
     root_xpub = card.get_xpub(cvc, True)
@@ -764,7 +762,7 @@ def json_dump(cvc):
         # assuming BIP-44 compliance here
         bip_num = int(path_comps[0][:-1])
         if bip_num in { 44, 49, 84 }:
-            rv[f'bip_{bip_num}'] = dict(deriv=path, xpub=derived_xpub,
+            rv[f'bip_{bip_num}'] = dict(deriv=path2str(path_comps), xpub=derived_xpub,
                                         xfp=xfp, name=f'BIP-{bip_num}')
 
     print(json.dumps(rv, indent=2))

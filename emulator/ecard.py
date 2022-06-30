@@ -252,7 +252,7 @@ class CardState:
     def cmd_status(self, **unused):
         # implement the "status" command
 
-        rv = dict(proto=1, ver='0.1.0', birth=self.birth,
+        rv = dict(proto=1, ver='0.9.0', birth=self.birth,
                         pubkey=self.card_pubkey, card_nonce=self.nonce)
 
         if self.testnet:

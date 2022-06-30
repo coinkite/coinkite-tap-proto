@@ -2,7 +2,8 @@
 # (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
 import os, struct
-from binascii import b2a_hex, a2b_hex
+from typing import Sequence, List, Tuple
+from binascii import b2a_hex
 from cktap.constants import *
 from cktap.compat import hash160, sha256s
 from cktap.compat import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_pick_keypair
@@ -84,6 +85,32 @@ def str2path(path):
         rv.append(here)
 
     return rv
+
+def is_hardened(component: int) -> bool:
+    return bool(component & HARDENED)
+
+def split_bip32_path(path: Sequence[int]) -> Tuple[List[int], List[int]]:
+    """Split bip32 path to hardened part and non-hardened part"""
+    check_bip32_path(path)
+    hardened = []
+    non_hardened = []
+    for component in path:
+        if is_hardened(component):
+            hardened.append(component)
+        else:
+            non_hardened.append(component)
+    return hardened, non_hardened
+
+def check_bip32_path(path: Sequence[int]) -> None:
+    """Do not allow hardened components after non-hardened"""
+    found_non_hardened = False
+    for component in path:
+        curr_hardened = is_hardened(component)
+        # have we found non hardened component?
+        curr_non_hardened = not curr_hardened
+        if curr_hardened is True and found_non_hardened is True:
+            raise ValueError(f"Hardened path component after non-hardened {path2str(path)}")
+        found_non_hardened = curr_non_hardened
 
 # predicates for numeric paths. stop giggling
 all_hardened = lambda path: all(bool(i & HARDENED) for i in path)
