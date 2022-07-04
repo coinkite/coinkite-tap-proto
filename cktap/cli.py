@@ -64,6 +64,10 @@ def get_card(only_satscard=False, only_tapsigner=False, only_chip=False):
             if only_satscard and c.is_tapsigner: continue
             if only_tapsigner and not c.is_tapsigner: continue
             if only_chip and not c.is_tapsigner: continue
+
+            if global_opts.get('skip_cert_checks', False):
+                c.certificate_check = lambda: print("WARNING: Cert checks skipped!")
+
             return c
 
         if not wait_for_it: 
@@ -175,6 +179,8 @@ class AliasedGroup(click.Group):
                     help="Show traffic with card.")
 @click.option('--pdb', is_flag=True, 
                     help="Prepare patient for surgery to remove bugs.")
+@click.option('--skip-cert-checks', is_flag=True, 
+                    help="Skip certificate checks (testing purposes only)")
 @click.version_option(version=__version__)
 def main(**kws):
     '''
