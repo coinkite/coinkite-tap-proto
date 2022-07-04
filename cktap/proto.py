@@ -371,8 +371,9 @@ class CKTapCard:
                 return rec_sig
             except CardRuntimeError as err:
                 if err.code == 205:  # unlucky number
-                    # get status to update card's nonce
-                    self.send('status')
+                    if self.applet_version == '0.9.0':
+                        # workaround: get status to update card's nonce
+                        self.send('status')
                     continue
                 raise
 
