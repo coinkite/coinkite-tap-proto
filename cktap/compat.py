@@ -64,6 +64,7 @@ def CT_bip32_derive(chain_code, master_priv_pub, subkey_path):
 
 
 try:
+    # python-secp256k1 <https://github.com/scgbckbone/python-secp256k1>
     from cktap.wrap_pysecp import CT_pick_keypair, CT_bip32_derive, CT_priv_to_pubkey
     from cktap.wrap_pysecp import CT_ecdh, CT_sig_verify, CT_sig_to_pubkey, CT_sign
 
