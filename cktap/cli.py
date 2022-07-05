@@ -9,7 +9,7 @@
 # That will create the command "cktap" in your path.
 #
 #
-import click, sys, os, pdb, time, json
+import click, sys, os, pdb, time, json, textwrap
 from binascii import b2a_hex
 from functools import wraps
 from getpass import getpass
@@ -63,7 +63,7 @@ def get_card(only_satscard=False, only_tapsigner=False, only_chip=False):
                     continue
             if only_satscard and c.is_tapsigner: continue
             if only_tapsigner and not c.is_tapsigner: continue
-            if only_chip and not c.is_tapsigner: continue
+            if only_chip and not c.is_tapsigner: continue           # keep for v0.9.0 compat
 
             if global_opts.get('skip_cert_checks', False):
                 c.certificate_check = lambda: print("WARNING: Cert checks skipped!")
@@ -585,7 +585,7 @@ def setup_slot(cvc=None, chain_code=None, new_chain_code=True):
     ses_key, resp = card.send_auth('new', cvc, **args)
 
     if card.is_tapsigner:
-        click.echo('TAPSIGNER ready for use')
+        click.echo(f'{card.product_name} ready for use')
     else:
         # only one field: new slot number
         card.active_slot = resp['slot']
@@ -678,8 +678,7 @@ def card_status():
     # meant as a starting point? no auth
     # TODO: make more useful, and be default cmd?
     card = get_card()
-    st = card.get_status()
-    print("-- TAPSIGNER Card --" if st.get('tapsigner', False) else '-- SATSCARD --')
+    print(f"-- {card.product_name} --")
 
     print(f'Card ident: {card.card_ident}')
     print(f'Birth Height: {card.birth_height}')
@@ -688,7 +687,11 @@ def card_status():
         print(f'Needs auth delay: {card.auth_delay} seconds')
 
     if card.is_tapsigner:
-        print(f'Number of backups: {st["num_backups"]}')
+        st = card.get_status()
+
+        if 'num_backups' in st:
+            print(f'Number of backups: {st["num_backups"]}')
+
         if 'path' in st:
             print(f'Current derivation: ' + path2str(st['path']))
         else:
@@ -776,6 +779,10 @@ def do_backup(cvc, outfile, wrap_shell):
     card = get_card(only_tapsigner=True)
     cvc = cleanup_cvc(card, cvc)
 
+    if card.is_satschip:
+        click.echo(f"Not supported on {card.product_name}", err=True)
+        sys.exit(1)
+
     import datetime
     from base64 import b64encode
 
@@ -784,20 +791,30 @@ def do_backup(cvc, outfile, wrap_shell):
         ident = card.card_ident.split('-')[0]
         outfile = f'backup-{ident}-{nowish}.' + ('sh' if wrap_shell else 'aes')
 
-    enc = card.make_backup(cvc)
+    try:
+        enc = card.make_backup(cvc)
+    except CardRuntimeError as exc:
+        if exc.code == 406:
+            print("You must pick a private key (cktap setup) before doing a backup")
+            sys.exit(1)
+        else:
+            raise
 
     with open(outfile, 'wt' if wrap_shell else 'wb') as fp:
         if not wrap_shell:
             fp.write(enc)
         else:
-            b6 = b64encode(enc).decode('ascii')
+            b6 = '\n'.join(textwrap.wrap(b64encode(enc).decode('ascii')))
             print(f'''\
 #!/bin/sh
-read -p "Key from back of card: " KEY
-base64 -d <<END-OF-DATA | openssl aes-128-ctr -d -iv 0 -K $KEY | hexdump -C
+#
+# {card.product_name} backup: {card.card_ident}
+#
+read -p "Key from back of card (32 hex digits): " KEY
+echo
+base64 -d <<END-OF-DATA | openssl aes-128-ctr -d -iv 0 -K $KEY
 {b6}
-END-OF-DATA
-''', file=fp)
+END-OF-DATA''', file=fp)
 
         print(f"Wrote {fp.tell()} bytes to: {fp.name}")
 
@@ -842,7 +859,7 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
     cvc = cleanup_cvc(card, cvc)
 
     host = urlparse(card.get_nfc_url())
-    if 'satschip.com' not in host.hostname:
+    if 'satschip.com' not in host.hostname:     # keep v0.9.0 compat
         # might have TAPSIGNER up to here
         click.echo(f"Sorry, a SATSCHIP is required for this.", err=True)
         sys.exit(1)

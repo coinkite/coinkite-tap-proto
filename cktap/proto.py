@@ -77,7 +77,16 @@ class CKTapCard:
         self.birth_height = st.get('birth', None)
         self.is_testnet = st.get('testnet', False)
         self.auth_delay = st.get('auth_delay', 0)
-        self.is_tapsigner =  st.get('tapsigner', False)
+
+        self.is_tapsigner = st.get('tapsigner', False)
+        self.is_satschip = self.is_tapsigner and ('num_backups' not in st)      # v1.0.0 required
+        if self.is_satschip:
+            self.product_name = 'SATSCHIP'
+        elif self.is_tapsigner:
+            self.product_name = 'TAPSIGNER'
+        else:
+            self.product_name = 'SATSCARD'
+
         self.active_slot, self.num_slots = st.get('slots', (0,1))
         assert self.card_nonce      # self.send() will have captured from first status req
 

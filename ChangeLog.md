@@ -1,3 +1,9 @@
+# 1.0.5
+
+- support for SATSCHIP v1.0.0 product
+- shell output for backup command improved
+- adds `card.product_name` string
+
 # 1.0.4
 
 - remove pyscard as hard requirement, so possible to use library on web servers

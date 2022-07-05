@@ -108,9 +108,12 @@ See [TAPSIGNER Variant Overview](#tapsigner-variant-overview) for more informati
 ## SATSCHIP Differences
 
 The SATSCHIP version is exactly like a TAPSIGNER, except it ships from the
-factory with a starting PIN of `123456` and the AES key for backups is not
-provided. The URL provided when tapped, will lead to `satschip.com` rather
+factory with a starting PIN of `123456` and key backup is not supported.
+The URL provided when tapped, will lead to `satschip.com` rather
 than `tapsigner.com`.
+
+The status response contains an extra field: `satschip=True` and omits
+the `num_backups` value which would not be possible to change.
 
 Learn more about the SATSCHIP variant at: [SATSCHIP.com](https://satschip.com)
 
@@ -313,6 +316,19 @@ Example response:
     'card_nonce': (16 bytes)       # random bytes, changed each time we reply to a valid cmd
 }
 ```
+
+#### SATSCHIP `status` Differences
+
+Same fields as TAPSIGNER, except:
+
+Fields removed:
+- `num_backups`
+
+Fields added:
+- `satschip=True`
+
+Note the field `tapsigner=True` is still present, and your software should
+treat the SATSCHIP the same as a TAPSIGNER. 
 
 
 ### `read`

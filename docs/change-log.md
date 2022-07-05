@@ -31,6 +31,10 @@ had a bug and would reject as "weak" some cases that do satify the
 requirement. Very slim odds of hitting this bug if you pick nonces
 randomly.
 
+- SATSCHIP model: this product variant is a TAPSIGNER in all respects,
+except, as of v1.0.0: `num_backups` in status field is omitted, and
+a flag `satschip=True` will be present instead. The "backup" command
+is not supported and will fail with 404 error.
 
 ## 0.9.0 - March 2022
 

@@ -127,7 +127,7 @@ class CKTapNFCTransport(CKTapTransportABC):
         # Perform "ISO Select" to pick our app
         # - 00 a4 04 00 (APPID)
         # - required to get started
-        # - returns same CBOR as a 'status' command (ignored here)
+        # - returns same CBOR as a 'status' command (TODO: just ignored here)
         sw, resp = self._apdu(0x00, 0xa4, APP_ID, p1=4)
         assert sw == SW_OKAY, "ISO app select failed"
 
