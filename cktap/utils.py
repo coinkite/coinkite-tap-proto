@@ -58,7 +58,7 @@ def path2str(path):
     return '/'.join(['m'] + [str(i & ~HARDENED)+('h' if i&HARDENED else '') for i in path])
 
 def str2path(path):
-    # normalize notation and return numbers, no error checking
+    # normalize notation and return numbers, limited error checking
     rv = []
 
     for i in path.split('/'):
