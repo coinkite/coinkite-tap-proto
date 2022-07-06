@@ -6,6 +6,7 @@
 # Implement the higher-level protocol for cards, both TAPSIGNER and SATSCARD.
 #
 #
+from .bip32 import PubKeyNode
 from cktap.utils import *
 from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
@@ -170,7 +171,7 @@ class CKTapCard:
 
         return addr
 
-    def get_derivation(self):
+    def _get_derivation(self) -> List[int]:
         # TAPSIGNER only: what's the current derivation path, which might be
         # just empty (aka 'm').
         assert self.is_tapsigner
@@ -178,25 +179,33 @@ class CKTapCard:
         path = st.get('path', None)
         if path is None:
             raise RuntimeError("No private key picked yet.")
-        return path2str(path)
+        return path
 
-    def set_derivation(self, path, cvc):
+    def get_derivation(self) -> str:
+        return path2str(self._get_derivation())
+
+    def _set_derivation(self, path: List[int], cvc):
         # TAPSIGNER only: what's the current derivation path, which might be
         # just empty (aka 'm').
         assert self.is_tapsigner
-        np = str2path(path)
-        if len(np) > DERIVE_MAX_BIP32_PATH_DEPTH:
+        if self._get_derivation() == path:
+            # we are already at desired path - NOOP
+            return
+        if len(path) > DERIVE_MAX_BIP32_PATH_DEPTH:
             raise ValueError(f"No more than {DERIVE_MAX_BIP32_PATH_DEPTH} path components allowed.")
 
-        if not all_hardened(np):
+        if not all_hardened(path):
             raise ValueError("All path components must be hardened")
 
-        _, resp = self.send_auth('derive', cvc, path=np, nonce=pick_nonce())
+        _, resp = self.send_auth('derive', cvc, path=path, nonce=pick_nonce())
 
         # XXX need FP of parent key and master (XFP)
         # XPUB would be better result here, but caller can use get_xpub() next
 
-        return len(np), resp['chain_code'], resp['pubkey']
+        return len(path), resp['chain_code'], resp['pubkey']
+
+    def set_derivation(self, path: str, cvc):
+        return self._set_derivation(path=str2path(path), cvc=cvc)
 
     def get_xfp(self, cvc):
         # fetch master xpub, take pubkey from that and calc XFP
@@ -213,6 +222,20 @@ class CKTapCard:
         xpub = st['xpub']
         return encode_base58_checksum(xpub)
 
+    def derive_xpub_at_path(self, cvc, fullpath: str):
+        assert self.is_tapsigner
+        int_path = str2path(fullpath)
+        hardened, non_hardened = split_bip32_path(int_path)
+        self._set_derivation(path=hardened, cvc=cvc)
+        xpub = self.get_xpub(cvc)
+        if not non_hardened:
+            return xpub
+        else:
+            hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
+            # now derive subpath
+            hd0 = hd.get_extended_pubkey_from_path(non_hardened)
+            return hd0.extended_public_key()
+
     def get_pubkey(self, cvc, subpath:str=None):
         # TAPSIGNER only: Get the public key for current derived path
         # - on TS, it's an authenticated command: 'read'
@@ -228,7 +251,6 @@ class CKTapCard:
             return recover_pubkey(st, rr, n, ses_key)
         else:
             xpub = self.get_xpub(cvc, master=False)
-            from .bip32 import PubKeyNode
             hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
             sk = hd.get_extended_pubkey_from_path(str2path(subpath))
 
@@ -336,28 +358,36 @@ class CKTapCard:
 
         return (addr, status, here)
 
-    def sign_digest(self, cvc: str, digest: bytes, slot: int=0, subpath: str=None) -> bytes:
+    def sign_digest(self, cvc: str, digest: bytes, slot: int=0, subpath: str = None, fullpath: str = None) -> bytes:
         """
         Sign 32 bytes digest and return 65 bytes long recoverable signature.
 
         Uses derivation path based on current set derivation on card plus optional
         subpath parameter which if provided, will be added to card derivation path.
-        Subpath can only be of length 2 and non-hardened components only.
+        subpath can only be of length 2 and non-hardened components only.
+        if subpath is specified - use current derivation + derive subpath
+        if fullpath is specified - subpath is ignored and derivation goes from root
 
         Returns non-deterministic recoverable signature (header[1b], r[32b], s[32b])
         """
         if len(digest) != 32:
             raise ValueError("Digest must be exactly 32 bytes")
 
-        if not self.is_tapsigner and subpath:
-            raise ValueError("Cannot use 'subpath' option for SATSCARD")
+        if not self.is_tapsigner and (subpath or fullpath):
+            raise ValueError("Cannot use 'subpath/fullpath' option for SATSCARD")
 
-        # subpath validation
-        int_path = str2path(subpath) if subpath is not None else []
-        if len(int_path) > 2:
-            raise ValueError(f"Length of path {subpath} is greater than 2")
+        if fullpath:
+            # ignore subpath if bip32_path is provided
+            int_path = str2path(fullpath) if fullpath is not None else []
+            hardened, sub = split_bip32_path(int_path)
+            self._set_derivation(path=hardened, cvc=cvc)
+        else:
+            sub = str2path(subpath) if subpath is not None else []
 
-        if not none_hardened(int_path):
+        if len(sub) > 2:
+            raise ValueError(f"Length of path {path2str(sub)[2:]} is greater than 2")
+
+        if not none_hardened(sub):
             raise ValueError(f"Subpath {subpath} contains hardened components")
 
         if self.is_tapsigner:
@@ -366,8 +396,7 @@ class CKTapCard:
         for _ in range(5):
             try:
                 if self.is_tapsigner:
-                    ses_key, resp = self.send_auth('sign', cvc, slot=slot,
-                                                            digest=digest, subpath=int_path)
+                    ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest, subpath=sub)
                 else:
                     # Important: do not pass subpath argument to a SATSCARD
                     # where it is not applicable and triggers a bug in early versions.
@@ -376,7 +405,8 @@ class CKTapCard:
                 sig = resp['sig']
                 if not CT_sig_verify(expect_pub, digest, sig):
                     continue
-                rec_sig = make_recoverable_sig(digest, sig, addr=None, expect_pubkey=expect_pub, is_testnet=self.is_testnet)
+                rec_sig = make_recoverable_sig(digest, sig, addr=None, expect_pubkey=expect_pub,
+                                               is_testnet=self.is_testnet)
                 return rec_sig
             except CardRuntimeError as err:
                 if err.code == 205:  # unlucky number

@@ -1,5 +1,6 @@
 # 1.0.5
-
+- add ability to derive non hardened derivations with library (not possible with card - card can only derive hardened path components)
+- 'sign_digest' accepts new 'fullpath' parameter where full bip 32 string path can be passed
 - support for SATSCHIP v1.0.0 product
 - shell output for backup command improved
 - adds `card.product_name` string

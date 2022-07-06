@@ -9,7 +9,7 @@ import pytest
 import os
 from cktap.constants import *
 from cktap.compat import *
-from cktap.utils import xor_bytes, verify_derive_address, render_address
+from cktap.utils import xor_bytes, verify_derive_address, render_address, str2path
 from cktap.verify_link import url_decoder
 
 def test_wrap():
@@ -118,7 +118,7 @@ def test_set_derivation(dev, known_cvc):
     with pytest.raises(ValueError) as err:
         dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # more than 8 components
     assert err.value.args[0] == 'No more than 8 path components allowed.'
-    assert dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # exactly 8 components - must pass
+    dev.set_derivation("m/84h/0h/0h/0h/0h/0h/0h/0h", known_cvc)  # exactly 8 components - must pass
 
 
 @pytest.mark.device
@@ -139,6 +139,8 @@ def test_sign_digest(dev, known_cvc):
             msg_digest = sha256s(sha256s(os.urandom(32)))
             sig = dev.sign_digest(cvc=known_cvc, slot=0, digest=msg_digest, subpath=f"{i}/{i+100}")
             assert len(sig) == 65
+            sig = dev.sign_digest(cvc=known_cvc, slot=0, digest=msg_digest, fullpath=f"m/84'/1'/0'/{i}/{i+100}")
+            assert len(sig) == 65
 
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0/0")
@@ -146,11 +148,21 @@ def test_sign_digest(dev, known_cvc):
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0h")
         assert err.value.args[0] == "Subpath 0/0h contains hardened components"
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), fullpath="m/84'/1'/0'/0/0/0")
+        assert err.value.args[0] == 'Length of path 0/0/0 is greater than 2'
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), fullpath="m/84'/1'/0'/0/0h")
+        assert err.value.args[0] == "Hardened path component after non-hardened m/84h/1h/0h/0/0h"
     else:
         # SATSCARD does not support subpath
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0")
-        assert err.value.args[0] == "Cannot use 'subpath' option for SATSCARD"
+        assert err.value.args[0] == "Cannot use 'subpath/fullpath' option for SATSCARD"
+        # SATSCARD does not support fullpath
+        with pytest.raises(ValueError) as err:
+            dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), fullpath="m/84'/1'/0'/0/0")
+        assert err.value.args[0] == "Cannot use 'subpath/fullpath' option for SATSCARD"
 
     # digest len not equal to 32
     with pytest.raises(ValueError) as err:
@@ -245,6 +257,28 @@ def test_get_privkey(dev, known_cvc):
     if not count:
         raise pytest.xfail("no unsealed slots")
 
+
+@pytest.mark.device
+def test_derive_xpub_at_path(dev, known_cvc):
+    if not dev.is_tapsigner:
+        raise pytest.skip("satscard")
+    to_derive_success = [
+        "m/84'/1'/0'",
+        "m/84'/0'/0'",
+        "m/84'/0'/0'/0/0",
+        "m/84'/1'/0'/1/0",
+        "m/84'/1'/0'/1000/0",
+        "m/84'/1'/0'/9999/9999/999/9999",
+    ]
+    for path in to_derive_success:
+        dev.derive_xpub_at_path(known_cvc, fullpath=path)
+    to_derive_fail = [
+        "m/84'/0'/0'/0/0'",
+        "m/84'/1'/0'/1/{}".format(2**31),
+    ]
+    for path in to_derive_fail:
+        with pytest.raises(ValueError):
+            dev.derive_xpub_at_path(known_cvc, fullpath=path)
 
 @pytest.mark.satscard
 @pytest.mark.device
