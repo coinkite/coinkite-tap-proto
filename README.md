@@ -17,6 +17,7 @@ Examples/Libraries in other languages will be added when available.
 - **[Docs and Spec subdirectory (./docs)](docs)**
   - [Protocol specification](docs/protocol.md)
   - [NFC specification](docs/nfc-spec.md)
+  - [Best Practices and Warnings](docs/best-practices.md)
   - [Developer's Guide and Usage Hints for TAPSIGNER](docs/tapsigner-hints.md)
 - [Emulator README](emulator/)
 - [Testing README](testing/)
@@ -26,7 +27,9 @@ Examples/Libraries in other languages will be added when available.
 
 ## Setup For Everyday Use
 
-First update `pip` to latest version and install wheel (otherwise legacy setup.py install will be used)
+First update `pip` to latest version and install wheel (otherwise
+legacy setup.py install will be used)
+
 ```shell
 pip install -U pip wheel
 ```
@@ -37,7 +40,7 @@ Install `cktap`, our helpful command-line program, with just:
 
 **OR**
 
-If you just want the Python library, use: `pip install coinkite-tap-protocol`
+If you just want the Python library by itself, use: `pip install coinkite-tap-protocol`
 
 
 ## Setup If You Might Change the Code
@@ -64,7 +67,7 @@ reflected in the installed version.
 - `pyscard` for access to smart card readers
 - A supported smart card reader. In theory, all smart card USB CCID class-compliant
   devices should work. Our observations:
-    - **ACS ACR1252U** - okay and widely available
+    - **ACS ACR1252U** - okay and widely available, and for sale by Coinkite
     - **Identiv uTrust 3700F** - reliable and looks nice
     - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
     - **NOT recommended:** ACS ACR122U. It can work, and is widely available, but is not reliable.
@@ -79,7 +82,6 @@ Installing `pyscard` require SWIG and libpcsclite:
 sudo apt-get install swig
 sudo apt-get install libpcsclite-dev
 ```
-
 
 ## Windows Notes
 
