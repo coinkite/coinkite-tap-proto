@@ -8,7 +8,7 @@ and if a different card is seen, assume a new CVC is needed.
 
 ## SATSCARD
 
-1. Do not prompt for CVC (PIN code) unless you truely need it. For example, if you
+1. Do not prompt for CVC (PIN code) unless you truly need it. For example, if you
 are showing the "balance" there is no need for the code. If the user is verifying
 someone else's card (for example, before a business transaction is completed),
 then you've risked the funds involved. In many cases, if you can make the CVC
@@ -20,10 +20,10 @@ means that the QR code printed on the card back should no longer
 be used. The assumption is once a slot is unsealed, the private key
 is public.
 
-3. Not all SATSCARDS will have a printed QR on the back. For now,
+3. Not all SATSCARD will have a printed QR on the back. For now,
 all cards will have slot zero picked at factory, but we may ship
-SATSCARDs someday with slot zero unused. In that case, the `chain_code`
-value will need to be provided by your app (32-byte nonce).
+a SATSCARD someday with slot zero unused. In that case, the `chain_code`
+argument to `setup` will have to be provided by your app (32-byte nonce).
 
 
 ## TAPSIGNER
