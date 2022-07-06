@@ -6,6 +6,12 @@
 during operation. You should associate it with the `card_ident` (card pubkey)
 and if a different card is seen, assume a new CVC is needed.
 
+2. Verify that when the card picks a key it uses BIP-32 chain code you gave it.
+Take the `chain_code` your code provided, and check that the public key it
+gives after picking is derived using that `chain_code`. This check applies to
+both the SATSCARD, where the path is always `m/0` and also the TAPSIGNER,
+where you may control the derivation path.
+
 ## SATSCARD
 
 1. Do not prompt for CVC (PIN code) unless you truly need it. For example, if you
