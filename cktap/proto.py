@@ -188,9 +188,11 @@ class CKTapCard:
         # TAPSIGNER only: what's the current derivation path, which might be
         # just empty (aka 'm').
         assert self.is_tapsigner
+
         if self._get_derivation() == path:
             # we are already at desired path - NOOP
             return
+
         if len(path) > DERIVE_MAX_BIP32_PATH_DEPTH:
             raise ValueError(f"No more than {DERIVE_MAX_BIP32_PATH_DEPTH} path components allowed.")
 
@@ -199,7 +201,6 @@ class CKTapCard:
 
         _, resp = self.send_auth('derive', cvc, path=path, nonce=pick_nonce())
 
-        # XXX need FP of parent key and master (XFP)
         # XPUB would be better result here, but caller can use get_xpub() next
 
         return len(path), resp['chain_code'], resp['pubkey']
@@ -223,18 +224,21 @@ class CKTapCard:
         return encode_base58_checksum(xpub)
 
     def derive_xpub_at_path(self, cvc, fullpath: str):
+        # TAPSIGNER: Returns xpub for given full path.
+        # - possible side-effect: it may need to change subpath stored on card
         assert self.is_tapsigner
-        int_path = str2path(fullpath)
-        hardened, non_hardened = split_bip32_path(int_path)
+
+        hardened, non_hardened = split_bip32_path(str2path(fullpath))
         self._set_derivation(path=hardened, cvc=cvc)
+
         xpub = self.get_xpub(cvc)
         if not non_hardened:
             return xpub
-        else:
-            hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
-            # now derive subpath
-            hd0 = hd.get_extended_pubkey_from_path(non_hardened)
-            return hd0.extended_public_key()
+
+        hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
+        # now derive subpath
+        hd0 = hd.get_extended_pubkey_from_path(non_hardened)
+        return hd0.extended_public_key()
 
     def get_pubkey(self, cvc, subpath:str=None):
         # TAPSIGNER only: Get the public key for current derived path
@@ -358,37 +362,36 @@ class CKTapCard:
 
         return (addr, status, here)
 
-    def sign_digest(self, cvc: str, digest: bytes, slot: int=0, subpath: str = None, fullpath: str = None) -> bytes:
+    def sign_digest(self, cvc: str, digest: bytes, slot: int=0, subpath: str=None, fullpath: str=None) -> bytes:
         """
         Sign 32 bytes digest and return 65 bytes long recoverable signature.
 
         Uses derivation path based on current set derivation on card plus optional
         subpath parameter which if provided, will be added to card derivation path.
         subpath can only be of length 2 and non-hardened components only.
-        if subpath is specified - use current derivation + derive subpath
-        if fullpath is specified - subpath is ignored and derivation goes from root
+        if subpath is specified -> use current derivation + derive subpath
+        if fullpath is specified -> subpath is ignored and derivation goes from root
 
-        Returns non-deterministic recoverable signature (header[1b], r[32b], s[32b])
+        Returns non-deterministic, recoverable signature (header[1b], r[32b], s[32b])
         """
         if len(digest) != 32:
             raise ValueError("Digest must be exactly 32 bytes")
 
         if not self.is_tapsigner and (subpath or fullpath):
-            raise ValueError("Cannot use 'subpath/fullpath' option for SATSCARD")
+            raise ValueError(f"Cannot use 'subpath/fullpath' option for {self.product_name}")
 
         if fullpath:
-            # ignore subpath if bip32_path is provided
-            int_path = str2path(fullpath) if fullpath is not None else []
-            hardened, sub = split_bip32_path(int_path)
+            # ignore subpath if fullpath is provided
+            hardened, sub = split_bip32_path(str2path(fullpath))
             self._set_derivation(path=hardened, cvc=cvc)
         else:
-            sub = str2path(subpath) if subpath is not None else []
+            sub = str2path(subpath) if subpath else []
 
         if len(sub) > 2:
-            raise ValueError(f"Length of path {path2str(sub)[2:]} is greater than 2")
+            raise ValueError(f"Length of subpath {path2str(sub)[2:]} is greater than 2")
 
         if not none_hardened(sub):
-            raise ValueError(f"Subpath {subpath} contains hardened components")
+            raise ValueError(f"subpath {path2str(sub)[2:]} contains hardened components")
 
         if self.is_tapsigner:
             slot = 0
@@ -401,6 +404,7 @@ class CKTapCard:
                     # Important: do not pass subpath argument to a SATSCARD
                     # where it is not applicable and triggers a bug in early versions.
                     ses_key, resp = self.send_auth('sign', cvc, slot=slot, digest=digest)
+
                 expect_pub = resp['pubkey']
                 sig = resp['sig']
                 if not CT_sig_verify(expect_pub, digest, sig):

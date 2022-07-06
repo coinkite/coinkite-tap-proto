@@ -199,6 +199,11 @@ To see more detail, include the CVC on the command line.
 `cktap path`
 - Shows the derivation path in effect, by default: `m/84h/0h/0h`
 
+### For SATSCHIP
+
+`cktap upload -i /path/to/image.jpg`
+- collects artwork meta data (title, description, etc) and uploads signed
+  result to public server
 
 ## Detailed Examples
 
