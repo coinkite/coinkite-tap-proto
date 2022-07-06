@@ -90,7 +90,11 @@ def test_status_fields(dev):
         assert 'slots' not in st
         if 'path' in st:
             assert isinstance(st.pop('path'), list)
-        assert 0 <= st.pop('num_backups') <= 127
+        if 'num_backups' in st:
+            assert 0 <= st.pop('num_backups') <= 127
+        else:
+            assert st.pop('satschip') == True
+            assert dev.product_name == 'SATSCHIP'
     else:
         # SATSCARD
         slots = st.pop('slots')
