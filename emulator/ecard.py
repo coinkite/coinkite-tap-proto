@@ -227,10 +227,12 @@ class CardState:
 
     @property
     def card_ident(self):
+        return sha256s(self.card_pubkey)[0:8]
+
+    def encode_card_ident(self):
         from base64 import b32encode
         md = b32encode(sha256s(self.card_pubkey)[8:]).decode('ascii')
-        return '-'.join(md[pos:pos+5] for pos in range(0, 20, 5))
-
+        return '-'.join(md[pos:pos + 5] for pos in range(0, 20, 5))
 
     def __repr__(self):
         if not self.birth:
@@ -240,9 +242,9 @@ class CardState:
         if self.is_tapsigner:
             prod = 'TAPSIGNER' if not self.is_satschip else 'SATSCHIP'
             if s.is_used:
-                return f'<{prod}: {self.card_ident} READY @ {path2str(s.deriv_path)}>'
+                return f'<{prod}: {self.encode_card_ident()} READY @ {path2str(s.deriv_path)}>'
             else:
-                return f'<{prod}: {self.card_ident} UNUSED>'
+                return f'<{prod}: {self.encode_card_ident()} UNUSED>'
         else:
             here = s.addr if s.is_used else 'NO-ADDR-YET'
             if not s.is_sealed:
