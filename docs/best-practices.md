@@ -12,6 +12,9 @@ gives after picking is derived using that `chain_code`. This check applies to
 both the SATSCARD, where the path is always `m/0` and also the TAPSIGNER,
 where you may control the derivation path.
 
+3. Assume the PIN code (CVC) is all numeric and provide you users with a 
+digits-only on-screen keyboard.
+
 ## SATSCARD
 
 1. Do not prompt for CVC (PIN code) unless you truly need it. For example, if you
@@ -46,6 +49,11 @@ for emergencies only and once used, the TAPSIGNER is no longer
 secure.
 
 4. Encourage users to change the CVC from factory default.
+
+5. Force your users to use numeric (digits only) CVC when they
+change it. Although the protocol could be used for other bytes,
+your app will make the customer's TAPSIGNER card incompatible with
+other apps if creates a CVC which isn't simple numeric digits.
 
 
 ## SATSCHIP
