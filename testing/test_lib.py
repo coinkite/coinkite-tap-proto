@@ -49,16 +49,18 @@ def test_wrap():
 @pytest.mark.device
 def test_addr(dev):
     # core functions
-    if not dev.tr.is_emulator:
-        dev.certificate_check()
-
+    pk = None
     if not dev.is_tapsigner:
-        addr = dev.address()
+        pk, addr = dev.get_address(incl_pubkey=True)
         if addr:
             # can be None if unused slot
             assert addr[0:3] in { 'tb1', 'bc1' }
         a2 = dev.address(faster=True)
         assert a2 == addr
+
+    if not dev.tr.is_emulator:
+        dev.certificate_check(pk)
+
 
 @pytest.mark.device
 def test_status_fields(dev):
@@ -194,8 +196,9 @@ def test_dump_unauth(dev):
             addr = d.pop('addr')
             assert '___' not in addr
         elif s == True:
-            addr = d.pop('addr')
-            assert '___' in addr
+            addr = d.pop('addr', None)
+            if addr:
+                assert '___' in addr
         else:
             raise ValueError(s)
 
