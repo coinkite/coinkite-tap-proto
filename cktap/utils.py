@@ -131,25 +131,34 @@ def card_pubkey_to_ident(card_pubkey):
 
     return '-'.join(md[pos:pos+5] for pos in range(0, 20, 5))
 
-def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
+def verify_certs(status_resp, check_resp, certs_resp, my_nonce, slot_pubkey):
     # Verify the certificate chain works, returns label for pubkey recovered from signatures.
     # - raises on any verification issue
     #
+    if status_resp['ver'] == '0.9.0':
+        # compat with v0.9.0 cards which never attest to the pubkey
+        slot_pubkey = None
+
     return verify_certs_ll(status_resp['card_nonce'], 
                 status_resp['pubkey'], my_nonce,
-                certs_resp['cert_chain'], check_resp['auth_sig'])
+                certs_resp['cert_chain'], check_resp['auth_sig'], slot_pubkey)
 
-def verify_certs_ll(card_nonce, card_pubkey, my_nonce, cert_chain, signature):
+def verify_certs_ll(card_nonce, card_pubkey, my_nonce, cert_chain, signature, slot_pubkey=None):
     # Lower-level version with just the facts coming in... 
     assert len(cert_chain) >= 2
 
     msg = b'OPENDIME' + card_nonce + my_nonce
     assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
 
-    # check card can sign with indicated key
+    if slot_pubkey:
+        # in v1.0.0+ SATSCARD, the pubkey of the sealed slot (if any) is included here
+        assert len(slot_pubkey) == 33
+        msg += slot_pubkey
+
+    # check card can and does sign with indicated key
     ok = CT_sig_verify(card_pubkey, sha256s(msg), signature)
     if not ok:
-        raise RuntimeError("bad sig in verify_certs")
+        raise RuntimeError("bad sig in when verifying certificates")
 
     # follow certificate chain to factory root
     pubkey = card_pubkey

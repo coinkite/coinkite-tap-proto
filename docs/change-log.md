@@ -1,11 +1,19 @@
 
-# Changes Between Versions
+# Changes Between Versions of Card Applet
 
-The "applet" reports a version number in the status field.
+The "applet" reports a version number in the status field (`ver`) as a short string.
 
 This document explains differences between versions.
 
 ## 1.0.0 - July 2022
+
+- Enhancement (breaking change---sorry): SATSCARD during certificate
+check (`check` command) will now attest to the public key of the
+current slot if the slot is sealed.  As a result, when verifying
+the factory certificate on a SATSCARD with a sealed slot, you will
+need to fetch the pubkey of the current slot in order to verify the
+factory certificate. Change does not apply to TAPSIGNER, SATSCHIP
+or a SATSCARD where the current slot is unsealed or unused.
 
 - Bugfix: In some situations, a new `card_nonce` was picked, and
 not reported to the caller because an error code (unrelated) was

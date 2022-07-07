@@ -1,3 +1,17 @@
+# 1.1.0
+
+- support for v1.0.0 cards
+- rename `CKTapCard.address()` to `CKTapCard.get_address()`, but old name still works
+- for SATSCARDS version 1.0.0 or later, when verifying the factory certficate, the
+  pubkey for the current sealed slot (if any) is needed, and the card attests to it.
+    - new 'pubkey' argument to `check_certs()`, which can be None for other cases
+    - flow inside `get_address()` is different, so that it has the pubkey when needed
+- `get_pubkey()` expanded to support SATSCARD where it returns pubkey of current sealed slot
+    - `cvc` argument now optional (for SATSCARD usage only)
+    - will return None if no key at this point, not an error
+- cli: global arguments for providing a different root factory certificate (for emulator usage)
+- emulator: `ecard.py` reworked to emulate v0.9.0 or v1.0.0 and SATSCHIP support, etc
+
 # 1.0.5
 - add ability to derive non hardened derivations with library (not possible with card - card can only derive hardened path components)
 - 'sign_digest' accepts new 'fullpath' parameter where full bip 32 string path can be passed

@@ -120,15 +120,11 @@ class CKTapCard:
     #
     # Wrappers and Helpers
     #
-    def address(self, faster=False, incl_pubkey=False, slot=None):
+    def get_address(self, faster=False, incl_pubkey=False, slot=None):
         # Get current payment address for card
         # - does 100% full verification by default
         # - returns a bech32 address as a string
         assert not self.is_tapsigner
-
-        # check certificate chain
-        if not self._certs_checked and not faster:
-            self.certificate_check()
 
         st = self.send('status')
         cur_slot = st['slots'][0]
@@ -138,7 +134,7 @@ class CKTapCard:
         if ('addr' not in st) and (cur_slot == slot):
             #raise ValueError("Current slot is not yet setup.")
 
-            return None
+            return (None, None) if incl_pubkey else None
 
         if slot != cur_slot:
             # Use the unauthenticated "dump" command.
@@ -153,6 +149,10 @@ class CKTapCard:
         rr = self.send('read', nonce=n)
         
         pubkey, addr = recover_address(st, rr, n)
+
+        # check certificate chain
+        if not self._certs_checked and not faster:
+            self.certificate_check(pubkey)
 
         if not faster:
             # additional check: did card include chain_code in generated private key?
@@ -170,6 +170,8 @@ class CKTapCard:
             return pubkey, addr
 
         return addr
+
+    address = get_address       # older member name
 
     def _get_derivation(self) -> List[int]:
         # TAPSIGNER only: what's the current derivation path, which might be
@@ -223,6 +225,47 @@ class CKTapCard:
         xpub = st['xpub']
         return encode_base58_checksum(xpub)
 
+    def get_pubkey(self, cvc=None, subpath:str=None):
+        # TAPSIGNER: Get the public key for current derived path
+        # SATSCARD: Get pubkey of current slot which must be sealed, else return None
+        # - on TS, it's an authenticated command: 'read'
+        # - equiv. to get_xpub(master=False) and looking at part of that value
+        # - if subpath is provided, fetch the xpub (derived on-card)
+        #   and apply further bip32 (unhardened) derivation off-card (here)
+        # - in any case, return None if no keypair defined yet for current slot
+        st = self.send('status')
+
+        if self.is_tapsigner:
+            if 'path' not in st:
+                return None
+
+            if not subpath:
+                n = pick_nonce()
+                ses_key, rr = self.send_auth('read', cvc, nonce=n)
+
+                return recover_pubkey(st, rr, n, ses_key)
+            else:
+                xpub = self.get_xpub(cvc, master=False)
+                hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
+                sk = hd.get_extended_pubkey_from_path(str2path(subpath))
+
+                return sk.sec()
+        else:
+            # Use special-purpose "read" command, which is unauthenticated
+            # - will return error if current slot is unused (meaning no key picked)
+            n = pick_nonce()
+            try:
+                rr = self.send('read', nonce=n)
+            except CardRuntimeError as exc:
+                if exc.code == 406:     # 'bad state'
+                    # current slot is not yet setup w/ private key (ie. unused or unsealed)
+                    return None
+                raise
+
+            pubkey, _ = recover_address(st, rr, n)
+
+            return pubkey
+
     def derive_xpub_at_path(self, cvc, fullpath: str):
         # TAPSIGNER: Returns xpub for given full path.
         # - possible side-effect: it may need to change subpath stored on card
@@ -240,26 +283,6 @@ class CKTapCard:
         hd0 = hd.get_extended_pubkey_from_path(non_hardened)
         return hd0.extended_public_key()
 
-    def get_pubkey(self, cvc, subpath:str=None):
-        # TAPSIGNER only: Get the public key for current derived path
-        # - on TS, it's an authenticated command: 'read'
-        # - equiv. to get_xpub(master=False) and looking at part of that value
-        # - if subpath is provided, fetch the xpub (derived on-card)
-        #   and apply further bip32 (unhardened) derivation
-        assert self.is_tapsigner
-        if not subpath:
-            n = pick_nonce()
-            st = self.send('status')
-            ses_key, rr = self.send_auth('read', cvc, nonce=n)
-
-            return recover_pubkey(st, rr, n, ses_key)
-        else:
-            xpub = self.get_xpub(cvc, master=False)
-            hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
-            sk = hd.get_extended_pubkey_from_path(str2path(subpath))
-
-            return sk.sec()
-            
 
     def make_backup(self, cvc):
         # read the backup file; gives ~100 bytes to be kept long term
@@ -272,18 +295,19 @@ class CKTapCard:
         assert 6 <= len(new_cvc) <= 32
         _, st = self.send_auth('change', old_cvc, data=force_bytes(new_cvc))
 
-    def certificate_check(self):
+    def certificate_check(self, pubkey=None):
         # Verify the certificate chain and the public key of the card
         # - assures this card was produced in Coinkite factory
         # - does not relate to payment addresses or slot usage
         # - raises on errors/failed validation
+        # - 'pubkey' is expected key of the sealed slot (or None)
         st = self.send('status')
         certs = self.send('certs')
 
         n = pick_nonce()
         check = self.send('check', nonce=n)
 
-        rv = verify_certs(st, check, certs, n)
+        rv = verify_certs(st, check, certs, n, pubkey)
         self._certs_checked = True
 
         return rv
@@ -346,7 +370,7 @@ class CKTapCard:
         if here.get('sealed', None) == True:
             status = 'sealed'
             if slot == self.active_slot:
-                addr = self.address(faster=True)
+                addr = self.get_address(faster=True)
         elif (here.get('sealed', None) == False) or ('privkey' in here):
             status = 'UNSEALED'
             if 'privkey' in here:

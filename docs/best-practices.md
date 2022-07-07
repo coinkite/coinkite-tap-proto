@@ -6,14 +6,20 @@
 during operation. You should associate it with the `card_ident` (card pubkey)
 and if a different card is seen, assume a new CVC is needed.
 
-2. Verify that when the card picks a key it uses BIP-32 chain code you gave it.
+2. Always verify the factory certificate of the card before trusting
+any data from it. Otherwise, your users will be tricked by cloned
+or emulated cards.
+
+3. Verify that when the card picks a key it uses BIP-32 chain code you gave it.
 Take the `chain_code` your code provided, and check that the public key it
 gives after picking is derived using that `chain_code`. This check applies to
 both the SATSCARD, where the path is always `m/0` and also the TAPSIGNER,
-where you may control the derivation path.
+where you may control the derivation path. On the TAPSIGNER, the `xpub`
+command should return the same chain code as you proided.
 
-3. Assume the PIN code (CVC) is all numeric and provide you users with a 
+4. Assume the PIN code (CVC) is all numeric and provide your users with a 
 digits-only on-screen keyboard.
+
 
 ## SATSCARD
 
@@ -34,11 +40,14 @@ all cards will have slot zero picked at factory, but we may ship
 a SATSCARD someday with slot zero unused. In that case, the `chain_code`
 argument to `setup` will have to be provided by your app (32-byte nonce).
 
+4. When unsealing a slot, you should probably setup the next slot in the
+same operation.
+
 
 ## TAPSIGNER
 
-1. Set the derivation path once, then just change the final two components
-(change/not change) and index when signing.
+1. Set the derivation path once, then just add the final two components
+(change/not change) and index when signing digests (see `subpath` argument).
 
 2. Do not try to do anything special with a SATSCHIP if you detect it, just
 operate like it was a normal TAPSIGNER (because it is, with the exception of
@@ -46,7 +55,7 @@ the backup command).
 
 3. Never prompt your user for the AES key printed on the card. It's
 for emergencies only and once used, the TAPSIGNER is no longer
-secure.
+secure. For backup purposes, capture the data and save it as binary.
 
 4. Encourage users to change the CVC from factory default.
 

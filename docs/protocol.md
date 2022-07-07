@@ -96,7 +96,12 @@ This document describes the protocol for both the **SATSCARD<sup>&trade;</sup>**
 
 ## Testnet Support
 
-Cards are set to operate on the Bitcoin mainnet by default. However, the factory can mark a card to operate on testnet for development and testing. The factory renders the card with a different human readable part (HRP), affecting the addresses. Testnet addresses start with _tb1_ rather than _bc1_. Testnet cannot be enabled after leaving the factory.    
+Cards are set to operate on the Bitcoin mainnet by default. However,
+the factory can mark a card to operate on testnet for development
+and testing. The factory renders the card with a different human
+readable part (HRP), affecting the addresses. Testnet addresses
+start with _tb1_ rather than _bc1_. Testnet cannot be enabled after
+leaving the factory, and we never fields those cards.
 
 
 ## TAPSIGNER Differences (vs. SATSCARD)
@@ -525,7 +530,30 @@ b'OPENDIME' (8 bytes)
 (nonce from check command - 16 bytes)
 ```
 
-The app verifies this signature and checks that the public key in use is the `card_pubkey` to prove it is talking to a genuine Coinkite card. The signatures of each certificate chain element are then verified by recovering the pubkey at each step. This checks that the batch certificate is signing the card's pubkey, that the root certificate is signing the batch certificate's key and so on. The root certificate's expected pubkey must be shared out-of-band and already known to the app.
+Starting in version 1.0.0 of the SATSCARD, the public key (33 bytes)
+for the current slot is appended to the above message. (If the current
+slot is unsealed or not yet used, this does not happen.) With the
+pubkey in place, the message being signed will be: 
+
+```
+b'OPENDIME' (8 bytes)
+(card_nonce - 16 bytes)
+(nonce from check command - 16 bytes)
+(pubkey of current sealed slot - 33 bytes)
+```
+
+The app verifies this signature and checks that the public key in
+use is the `card_pubkey` to prove it is talking to a genuine Coinkite
+card. The signatures of each certificate chain element are then
+verified by recovering the pubkey at each step. This checks that
+the batch certificate is signing the card's pubkey, that the root
+certificate is signing the batch certificate's key and so on. The
+root certificate's expected pubkey must be shared out-of-band and
+already known to the app.
+
+At this time, the only valid factory root pubkey is:
+
+    03028a0e89e70d0ec0d932053a89ab1da7d9182bdc6d2f03e706ee99517d05d9e1
 
 
 #### `rec_id` Notes
