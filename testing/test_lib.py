@@ -148,13 +148,13 @@ def test_sign_digest(dev, known_cvc):
 
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0/0")
-        assert err.value.args[0] == 'Length of path 0/0/0 is greater than 2'
+        assert err.value.args[0] == 'Length of subpath 0/0/0 is greater than 2'
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), subpath="0/0h")
-        assert err.value.args[0] == "Subpath 0/0h contains hardened components"
+        assert err.value.args[0] == "subpath 0/0h contains hardened components"
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), fullpath="m/84'/1'/0'/0/0/0")
-        assert err.value.args[0] == 'Length of path 0/0/0 is greater than 2'
+        assert err.value.args[0] == 'Length of subpath 0/0/0 is greater than 2'
         with pytest.raises(ValueError) as err:
             dev.sign_digest(cvc=known_cvc, slot=0, digest=sha256s(os.urandom(32)), fullpath="m/84'/1'/0'/0/0h")
         assert err.value.args[0] == "Hardened path component after non-hardened m/84h/1h/0h/0/0h"
