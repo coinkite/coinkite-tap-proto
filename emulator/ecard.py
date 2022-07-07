@@ -200,7 +200,7 @@ class CardState:
     num_backups: int = 0
     aes_key: (None, bytes) = None
 
-    def __init__(self):
+    def __init__(self, applet_version='1.0.0'):
         self.card_privkey, self.card_pubkey = pick_keypair()
         self.slots = [KeySlot() for i in range(NUM_SLOTS)]
         self.active_slot = 0
@@ -208,6 +208,8 @@ class CardState:
         self.birth = 0
         self.cert_chain = None
         self.url_prefix = None
+        self.applet_version = applet_version
+        self.is_tapsigner = self.is_satscard = self.is_satschip = False
         self._new_nonce()
 
     def _new_nonce(self):
@@ -225,8 +227,10 @@ class CardState:
 
     @property
     def card_ident(self):
-        assert self.is_tapsigner
-        return sha256(self.card_pubkey).digest()[0:8]
+        from base64 import b32encode
+        md = b32encode(sha256s(self.card_pubkey)[8:]).decode('ascii')
+        return '-'.join(md[pos:pos+5] for pos in range(0, 20, 5))
+
 
     def __repr__(self):
         if not self.birth:
@@ -234,11 +238,11 @@ class CardState:
 
         s = self.cur_slot
         if self.is_tapsigner:
-            ident = B2A(self.card_ident)
+            prod = 'TAPSIGNER' if not self.is_satschip else 'SATSCHIP'
             if s.is_used:
-                return f'<TAPSIGNER: {ident} READY @ {path2str(s.deriv_path)}>'
+                return f'<{prod}: {self.card_ident} READY @ {path2str(s.deriv_path)}>'
             else:
-                return f'<TAPSIGNER: {ident} UNUSED>'
+                return f'<{prod}: {self.card_ident} UNUSED>'
         else:
             here = s.addr if s.is_used else 'NO-ADDR-YET'
             if not s.is_sealed:
@@ -252,7 +256,7 @@ class CardState:
     def cmd_status(self, **unused):
         # implement the "status" command
 
-        rv = dict(proto=1, ver='0.9.0', birth=self.birth,
+        rv = dict(proto=1, ver=self.applet_version, birth=self.birth,
                         pubkey=self.card_pubkey, card_nonce=self.nonce)
 
         # TODO: SATSCARD support
@@ -262,7 +266,12 @@ class CardState:
 
         if self.is_tapsigner:
             rv['tapsigner'] = True
-            rv['num_backups'] = self.num_backups
+
+            if self.is_satschip:
+                rv['satschip'] = True
+            else:
+                rv['num_backups'] = self.num_backups
+
             if self.cur_slot.is_used:
                 rv['path'] = self.cur_slot.deriv_path
         else:
@@ -279,7 +288,7 @@ class CardState:
         assert len(nonce) == USER_NONCE_SIZE, 'bad nonce size'
         if len(set(nonce)) == 1: raise CKErrorCode("weak nonce", 417)
         if not self.cvc: raise CKErrorCode('card not yet setup', 406)
-        assert self.cur_slot.is_used, 'slot unused'
+        if not self.cur_slot.is_used: raise CKErrorCode('slot un-used', 406)
 
         if self.is_tapsigner:
             # auth required, but for TAPSIGNER case only
@@ -399,6 +408,10 @@ class CardState:
         msg = b'OPENDIME' + self.nonce + nonce
         #print(f'signed msg: {B2A(msg)}')
         assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
+
+        if self.applet_version != '0.9.0' and self.cur_slot.is_sealed and self.is_satscard:
+            assert len(self.cur_slot.pubkey) == 33
+            msg += self.cur_slot.pubkey
         
         sig = ec_sig_from_digest(self.card_privkey, sha256s(msg), EC_FLAG_ECDSA)
 
@@ -563,7 +576,7 @@ class CardState:
         return dict(cert_chain=self.cert_chain)
 
     def cmd_factory(self, birth=REQUIRED, cvc=REQUIRED, slots=10, url=REQUIRED,
-                                aes_key=None,
+                                aes_key=None, satschip=None,
                                 testnet=False, tapsigner=False, **unused_args):
         # One-time factory setup and data capture
         if self.cvc: raise CKErrorCode('already setup', 404)
@@ -587,12 +600,19 @@ class CardState:
 
         if tapsigner:
             # ignore slots arg
+            self.is_satscard = False
             self.is_tapsigner = True
-            assert len(aes_key) == 16
-            self.aes_key = aes_key
+            if satschip:
+                self.aes_key = NotImplemented
+                self.is_satschip = True
+            else:
+                assert len(aes_key) == 16
+                self.aes_key = aes_key
+            assert slots == 1
         else:
-            # for re-run of test
             self.is_tapsigner = False
+            self.is_satscard = True
+            assert slots >= 1
 
         return dict(success=True)
 
@@ -639,7 +659,9 @@ class CardState:
     def maybe_unlucky(self):
         if random.randint(0, 8) == 1:
             print("such bad luck")
-            self._new_nonce()
+            if self.applet_version == '0.9.0':
+                # this 'bug' fixed in 1.0.0
+                self._new_nonce()
             raise CKErrorCode("unlucky number", 205)
 
     def cmd_backup(self, epubkey=REQUIRED, xcvc=REQUIRED, **unused):
@@ -789,7 +811,7 @@ class CardState:
             con.close()
 
 
-def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
+def verify_certs(status_resp, check_resp, certs_resp, my_nonce, pubkey=None):
     # Verify the certificate chain works, returns root pubkey when actually used.
     #
     signatures = certs_resp['cert_chain']
@@ -799,6 +821,11 @@ def verify_certs(status_resp, check_resp, certs_resp, my_nonce):
     msg = b'OPENDIME' + r['card_nonce'] + my_nonce
     print(f'SIGNED msg: {B2A(msg)}')
     assert len(msg) == 8 + CARD_NONCE_SIZE + USER_NONCE_SIZE
+
+    if pubkey:
+        # v1 and later?
+        assert len(pubkey) == 33
+        msg += pubkey
 
     try:
         ec_sig_verify(r['pubkey'], sha256s(msg), EC_FLAG_ECDSA, check_resp['auth_sig'])
@@ -837,7 +864,7 @@ def recover_address(status_resp, read_resp, my_nonce):
     assert got.startswith(left)
     assert got.endswith(right)
 
-    return got
+    return pubkey, got
 
 def recover_master_pubkey(derive_resp, card_nonce, my_nonce, testnet=False):
     # Given the response from "derive" commands, reconstruct XPUB.
@@ -876,6 +903,9 @@ def fake_cert_chain(card_pubkey):
     assert not ROOT_PUBKEY
     ROOT_PUBKEY = bytes(r_pub)
 
+    # can be provided to cktap as global option
+    print("NOTE: Root cert pubkey today is: " + ROOT_PUBKEY.hex())
+
     return [b_sig, r_sig]
 
 def calc_xcvc(cmd, card_nonce, pubkey, privkey, cvc):
@@ -909,20 +939,30 @@ def main(testnet, rng_seed, debug=False, quiet=False):
 
 @main.command('emulate')
 @click.option('--factory', '-f', is_flag=True, help='Has no key picked, needs factory setup')
-@click.option('--no-init', '-i', is_flag=True, help='Do not initialize the card')
+@click.option('--no-init', '-i', is_flag=True, help='Do not initialize the first slot of card')
+@click.option('--satscard', '--sc', '-s', is_flag=True, help='Be a SATSCARD (default)')
 @click.option('--tapsigner', '--ts', '-t', is_flag=True, help='Be a TAPSIGNER')
+@click.option('--satschip', '--chip', '-c', is_flag=True, help='Be a SATSCHIP')
+@click.option('--version-9', '-9', is_flag=True, help='Emulate older version: 0.9.0')
 @click.option('--pipe', '-p', type=str, default='/tmp/ecard-pipe', help='Unix pipe for comms', metavar="PATH")
-def emulate_card(pipe, factory=False, tapsigner=False, no_init=False):
+def emulate_card(pipe, factory=False, tapsigner=False, no_init=False, satschip=False, satscard=True, version_9=False):
     '''
-        Emulate a card which is fresh from factory. Has no key picked.
+        Emulate a card which is fresh from factory.
     '''
-    card = CardState()
+    card = CardState(*tuple(['0.9.0'] if version_9 else []))
 
     if not factory:
         card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
-        card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET,
+        args = dict(birth=700001, cvc=b'123456', testnet=TESTNET,
                             aes_key=FIXED_AES_KEY,
                             url=NDEF_URL(tapsigner), tapsigner=tapsigner)
+        if satschip:
+            args['satschip'] = True
+            args['tapsigner'] = True
+            args.pop('aes_key')
+
+        card.cmd_factory(**args)
+
     if not no_init:
         # initialize first card slot
         card.cmd_new(chain_code=prandom(32), slot=0)
@@ -953,7 +993,7 @@ def sc_basic_test():
     rr = card.cmd_read(my_nonce)
     print(f"read({B2A(my_nonce)}) = {pformat(rr)}")
 
-    addr = recover_address(st, rr, my_nonce)
+    slot_pubkey, addr = recover_address(st, rr, my_nonce)
     print(f"CORRECTLY recovered addr: {addr}")
 
     certs = card.cmd_certs()
@@ -964,7 +1004,7 @@ def sc_basic_test():
     chk = card.cmd_check(my_nonce)
     print(f"cmd_check({B2A(my_nonce)}) = {pformat(chk)}")
 
-    root_pubkey = verify_certs(st, chk, certs, my_nonce)
+    root_pubkey = verify_certs(st, chk, certs, my_nonce, slot_pubkey)
 
     global ROOT_PUBKEY
     assert ROOT_PUBKEY == root_pubkey
@@ -988,7 +1028,7 @@ def sc_basic_test():
     st = card.cmd_status()
     my_nonce = prandom(USER_NONCE_SIZE)
     rr = card.cmd_read(my_nonce)
-    chk_addr = recover_address(st, rr, my_nonce)
+    _, chk_addr = recover_address(st, rr, my_nonce)
 
     print(f"New addr => {chk_addr}")
 
@@ -1007,6 +1047,8 @@ def sc_basic_test():
 
         print(f"slot[{idx}] => {pformat(dd)}")
         #print(f"slot[{idx}] => {dd['addr']}")
+
+    print("\nPASS\n")
 
 @main.command('tapsigner')
 def ts_basic_test():
@@ -1053,7 +1095,7 @@ def ts_basic_test():
     chk = card.cmd_check(my_nonce)
     print(f"cmd_check({B2A(my_nonce)}) = {pformat(chk)}")
 
-    root_pubkey = verify_certs(st, chk, certs, my_nonce)
+    root_pubkey = verify_certs(st, chk, certs, my_nonce, card.slots[0].pubkey)
 
     global ROOT_PUBKEY
     assert ROOT_PUBKEY == root_pubkey
@@ -1084,6 +1126,8 @@ def ts_basic_test():
     resp = card.cmd_read(nonce=my_nonce, data=new_cvc, epubkey=my_pub, xcvc=xcvc)
 
     print("change CVC works")
+
+    print("\nPASS\n")
 
 
 
