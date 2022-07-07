@@ -961,6 +961,9 @@ def emulate_card(pipe, factory=False, tapsigner=False, no_init=False, satschip=F
             args['tapsigner'] = True
             args.pop('aes_key')
 
+        if tapsigner or satschip:
+            args['slots'] = 1
+
         card.cmd_factory(**args)
 
     if not no_init:
