@@ -5,6 +5,11 @@ The "applet" reports a version number in the status field (`ver`) as a short str
 
 This document explains differences between versions.
 
+## 1.0.1 - July 2022
+
+- Very minor bug fix, affecting only TAPSIGNER with specific arguments
+  to "change" command.
+
 ## 1.0.0 - July 2022
 
 - Enhancement (breaking change---sorry): SATSCARD during certificate
