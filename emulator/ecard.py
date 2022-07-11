@@ -200,7 +200,7 @@ class CardState:
     num_backups: int = 0
     aes_key: (None, bytes) = None
 
-    def __init__(self, applet_version='1.0.0'):
+    def __init__(self, applet_version='1.0.1'):
         self.card_privkey, self.card_pubkey = pick_keypair()
         self.slots = [KeySlot() for i in range(NUM_SLOTS)]
         self.active_slot = 0
@@ -353,7 +353,7 @@ class CardState:
         if self.is_tapsigner:
             # TAPSIGNER
             path = list(path)
-            assert 0 <= len(path) <= 10, 'path too long'
+            assert 0 <= len(path) <= 8, 'path too long'
             assert all_hardened(path), 'must have all hardened components'
 
             # auth required, but for TS case only
@@ -393,6 +393,9 @@ class CardState:
 
         # decrypt
         new_cvc = xor_bytes(ses_key[0:len(data)], data)
+
+        if min(new_cvc) < 0x30 or max(new_cvc) > 0x39:
+            raise CKErrorCode('numeric only', 400)
 
         # save
         self.cvc = new_cvc
@@ -622,7 +625,7 @@ class CardState:
         # Return URL for NFC purposes
         return dict(url='https://' + self._nfc_dynread())
 
-    def cmd_sign(self, slot=0, epubkey=REQUIRED, xcvc=REQUIRED, digest=REQUIRED, subpath=[], **unused):
+    def cmd_sign(self, slot=0, epubkey=REQUIRED, xcvc=REQUIRED, digest=REQUIRED, subpath=None, **unused):
         # Dump information about used slots.
         if not self.cvc: raise CKErrorCode('card not yet setup', 406)
 
@@ -643,10 +646,12 @@ class CardState:
         self.maybe_unlucky()
 
         if self.is_tapsigner:
+            subpath = [] if subpath == None else subpath
             assert 0 <= len(subpath) <= 2
             assert none_hardened(subpath)
             pk, pub, _ = self.cur_slot.tmp_derive(subpath)
         else:
+            assert subpath == None
             was = self._check_visible_slot(slot)
             pk = was.privkey
             pub = was.pubkey
@@ -1064,7 +1069,7 @@ def ts_basic_test():
     card = CardState()
     card.cmd_certs(cert_chain=fake_cert_chain(card.card_pubkey))
     card.cmd_factory(birth=700001, cvc=b'123456', testnet=TESTNET, url=NDEF_URL(1), 
-                        aes_key=FIXED_AES_KEY, tapsigner=True)
+                        aes_key=FIXED_AES_KEY, tapsigner=True, slots=1)
     card.cmd_new(chain_code=prandom(32), slot=0)
 
     #if DEBUG:
