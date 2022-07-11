@@ -820,9 +820,9 @@ unsealed slots where the address in full is also provided.
 
 ### `change`
 
-TAPSIGNER users may change the CVC from the value printed on the card. This protects against theft when the owner's wallet is "borrowed."
+TAPSIGNER users may change the CVC from the value printed on the card. This protects against theft when the owner's wallet is "borrowed".
 
-The new CVC may be 6- to 32-bytes long. It is encrypted (XOR) by the session key.
+The new CVC may be 6- to 32-bytes digits long. It is encrypted (XOR) by the session key.
 
 The card must be backed-up at least once before this command is accepted or error code 425 (backup first) will result.
 
@@ -830,8 +830,8 @@ The card must be backed-up at least once before this command is accepted or erro
 {
     'cmd': 'change',            # command
     'data': (6 to 32 bytes),    # new CVC, encrypted
-    'epubkey': (33 bytes),       # app's ephemeral public key (required)
-    'xcvc': (6 bytes)          # encrypted CVC value (required)
+    'epubkey': (33 bytes),      # app's ephemeral public key (required)
+    'xcvc': (6 bytes)           # encrypted CVC value (required)
 }
 ```
 
@@ -846,7 +846,7 @@ The response:
 
 The new value takes effect immediately. There is no recovery method if it is forgotten; the factory-defined CVC is gone.
 
-Use ASCII-only, and perhaps only digits, to maximize compatibility between wallets. If desired, the CVC could be a 32-byte hash of the true password value.
+The new CVC must be numeric digits only (0..9), or you will receive "bad arguments" error code (400) and no change is made.
 
 
 ### `xpub`

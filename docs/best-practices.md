@@ -17,8 +17,8 @@ both the SATSCARD, where the path is always `m/0` and also the TAPSIGNER,
 where you may control the derivation path. On the TAPSIGNER, the `xpub`
 command should return the same chain code as you proided.
 
-4. Assume the PIN code (CVC) is all numeric and provide your users with a 
-digits-only on-screen keyboard.
+4. You can safely assume the PIN code (CVC) is all-numeric and provide
+your users with a digits-only on-screen keyboard.
 
 
 ## SATSCARD
@@ -47,7 +47,7 @@ same operation.
 ## TAPSIGNER
 
 1. Set the derivation path once, then just add the final two components
-(change/not change) and index when signing digests (see `subpath` argument).
+(change/not change, and index) when signing digests (see `subpath` argument).
 
 2. Do not try to do anything special with a SATSCHIP if you detect it, just
 operate like it was a normal TAPSIGNER (because it is, with the exception of
@@ -58,11 +58,6 @@ for emergencies only and once used, the TAPSIGNER is no longer
 secure. For backup purposes, capture the data and save it as binary.
 
 4. Encourage users to change the CVC from factory default.
-
-5. Force your users to use numeric (digits only) CVC when they
-change it. Although the protocol could be used for other bytes,
-your app will make the customer's TAPSIGNER card incompatible with
-other apps if creates a CVC which isn't simple numeric digits.
 
 
 ## SATSCHIP

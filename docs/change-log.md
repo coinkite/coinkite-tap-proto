@@ -7,6 +7,9 @@ This document explains differences between versions.
 
 ## 1.0.1 - July 2022
 
+- Enhancement: non-numeric PIN (CVC) codes are rejected as new values
+  to the "change PIN" command. All CVC codes must be 6 to 32 digits of 0..9.
+
 - Very minor bug fix, affecting only TAPSIGNER with specific arguments
   to "change" command.
 
