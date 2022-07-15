@@ -430,14 +430,14 @@ class CardState:
 
     def _validate_cvc(self, cmd, epubkey, xcvc):
         # Check they've done the math right and know the CVC printed on us.
+        # TODO: does not implement 429 / auth_delay requirements
         if epubkey == REQUIRED or xcvc == REQUIRED:
             raise CKErrorCode('need epub&xcvc', 403)
         assert is_valid_pubkey(epubkey), 'they gave a bogus pubkey'
-        assert len(xcvc) == len(self.cvc), 'wrong cvc length'
 
         ses_key, expect = calc_xcvc(cmd, self.nonce, epubkey, self.card_privkey, self.cvc)
 
-        if xcvc != expect:
+        if xcvc != expect or len(xcvc) != len(self.cvc):
             raise CKErrorCode('bad auth', 401)
 
         return ses_key
