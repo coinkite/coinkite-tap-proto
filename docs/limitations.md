@@ -13,9 +13,7 @@
 ### XFP (Extended Fingerprint) of Derived XPUB Values
 
 - when deriving XPUB values the TAPSIGNER does not calculate the parent's XFP values and instead
-  puts in zero as a placeholder value into the XPUB it returns. The correct parent-XFP value cannot
-  be calculated by the clients (when depth>1), nor validated by them, so this value is somewhat
-  of a placeholder in any case.
+  puts in zero as a placeholder value into the XPUB it returns.
 
 ### CBOR
 
