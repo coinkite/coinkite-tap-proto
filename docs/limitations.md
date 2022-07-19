@@ -10,9 +10,9 @@
     - standard paths do not have this property, and typically consist of 1 or 2-digit numbers
     - look for `0x` prefix, and decode as hex if needed
 
-### XFP (Extended Fingerprint)
+### XFP (Extended Fingerprint) of Derived XPUB Values
 
-- When deriving XPUB values the TAPSIGNER does not calculate the parent's XFP values and instead
+- when deriving XPUB values the TAPSIGNER does not calculate the parent's XFP values and instead
   puts in zero as a placeholder value into the XPUB it returns. The correct parent-XFP value cannot
   be calculated by the clients, nor validated by them, so this value is somewhat of a placeholder
   in any case.
