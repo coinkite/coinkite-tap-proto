@@ -499,7 +499,7 @@ class CardState:
             cc = s.deriv_chain_code
             pubkey = s.pubkey
             depth = len(s.deriv_path)
-            pfp = bytes([0xff]*4)       ## wrong, but compromise
+            pfp = bytes(4)       ## "99.99999997671694% wrong", but see docs/limitations.md
             kid_num = s.deriv_path[-1] if s.deriv_path else 0
 
         rv = self._encode_xpub(cc, pubkey, depth, pfp, kid_num)
