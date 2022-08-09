@@ -87,7 +87,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install tor
         run: |
-          wget https://dist.torproject.org/torbrowser/11.0.15/tor-win64-0.4.7.8.zip -O tor-win64-0.4.7.8.zip
+          wget https://dist.torproject.org/torbrowser/11.5.1/tor-win64-0.4.7.8.zip -O tor-win64-0.4.7.8.zip
           7z x tor-win64-0.4.7.8.zip
           cd Tor
           Start-Process "tor.exe" -WindowStyle Hidden

@@ -120,21 +120,40 @@ class CKTapCard:
     #
     # Wrappers and Helpers
     #
-    def get_address(self, faster=False, incl_pubkey=False, slot=None):
+    def get_address(self, faster=False, incl_pubkey=False, slot=None, cvc=None):
         # Get current payment address for card
         # - does 100% full verification by default
         # - returns a bech32 address as a string
         assert not self.is_tapsigner
+
+        LAST_SLOT = NUM_SLOTS - 1
+        # card firmware <= 1.0.0 contains off by one bug
+        # to get pubkey of last slot one has to provide cvc
+        # if incl_pubkey=True and (slot=9 or (slot=None and cur_slot=9)) and cvc=None
+        # then pubkey is None and only address is returned
+        # with correct cvc specified both pubkey bytes and corresponding address string are returned
+        # NOT a security issue
 
         st = self.send('status')
         cur_slot = st['slots'][0]
         if slot is None:
             slot = cur_slot
 
-        if ('addr' not in st) and (cur_slot == slot):
+        if ('addr' not in st) and (cur_slot == slot) and slot != 9: # last slot is exception
             #raise ValueError("Current slot is not yet setup.")
-
             return (None, None) if incl_pubkey else None
+
+        if slot == cur_slot == LAST_SLOT:  # last slot (all UNSEALED)
+            rr = self.send('dump', slot=slot)
+            addr = rr["addr"]
+            if incl_pubkey:
+                ses_key, rr = self.send_auth('dump', cvc=cvc, slot=slot)
+                pubkey = rr.get("pubkey")
+                # exit is needed here in this special case as we cannot reach verification - would fail
+                # certificate verification fails if slot pubkey is used instead of None
+                # additional verification fail with invalid state error
+                return pubkey, addr
+            return addr
 
         if slot != cur_slot:
             # Use the unauthenticated "dump" command.
@@ -143,16 +162,16 @@ class CKTapCard:
             assert not incl_pubkey, 'can only get pubkey on current slot'
 
             return rr['addr']
-        
+
         # Use special-purpose "read" command
         n = pick_nonce()
         rr = self.send('read', nonce=n)
-        
+
         pubkey, addr = recover_address(st, rr, n)
 
         # check certificate chain
         if not self._certs_checked and not faster:
-            self.certificate_check(pubkey)
+            self.certificate_check(None if slot == LAST_SLOT else pubkey)
 
         if not faster:
             # additional check: did card include chain_code in generated private key?
@@ -328,10 +347,10 @@ class CKTapCard:
         resp = self.send('dump', slot=target)
 
         if resp.get('used', None) == False:
-            raise RuntimeError(f"Slot {target} has not been used yet.")
+            raise RuntimeError(f"Slot has not been used yet. Use 'setup' cmd first.")
 
         if resp.get('sealed', None) == False:
-            raise RuntimeError(f"Slot {target} has already been unsealed.")
+            raise RuntimeError(f"Slot has already been unsealed.")
 
         ses_key, resp = self.send_auth('unseal', cvc, slot=target)
 
