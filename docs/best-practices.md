@@ -38,10 +38,17 @@ is public.
 3. Not all SATSCARD will have a printed QR on the back. For now,
 all cards will have slot zero picked at factory, but we may ship
 a SATSCARD someday with slot zero unused. In that case, the `chain_code`
-argument to `setup` will have to be provided by your app (32-byte nonce).
+argument to `setup` must be provided by your app (32-byte nonce).
 
 4. When unsealing a slot, you should probably setup the next slot in the
-same operation.
+same operation. And yet, please handle cards which have no ready-to-use
+slot: setup the next slot on request.
+
+5. Although the protocol and library number slots from zero, as
+programmers prefer, when communicating with users, the slots should
+start at number one. So externally, they are 1..10 and internally
+0..9. When possible, it's best to say "the first slot" when talking
+about the QR code on the back and the default settings.
 
 
 ## TAPSIGNER
