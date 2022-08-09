@@ -1,3 +1,10 @@
+# 1.2.0
+- fix: `wif` cli command to properly handle last slot
+- workaround: last slot bug - check `docs/limitations.md`
+- cli: changed numbering system in UX (cli.py) from 0..9 to 1..10 and implemented internal conversion
+  to 0..9 as backend still operates on sane indexes
+- emulator: `ecard.py` fixed active_slot off by one error
+
 # 1.1.0
 
 - support for v1.0.0 cards

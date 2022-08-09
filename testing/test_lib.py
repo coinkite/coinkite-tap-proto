@@ -47,19 +47,43 @@ def test_wrap():
 
 
 @pytest.mark.device
-def test_addr(dev):
+def test_addr(dev, known_cvc):
     # core functions
     pk = None
     if not dev.is_tapsigner:
-        pk, addr = dev.get_address(incl_pubkey=True)
-        if addr:
-            # can be None if unused slot
-            assert addr[0:3] in { 'tb1', 'bc1' }
-        a2 = dev.address(faster=True)
-        assert a2 == addr
+        status = dev.get_status()
+        cur_slot, num_slots = status["slots"]
+        _, what, _ = dev.get_slot_usage(slot=cur_slot)
+        if what in ("UNSEALED", "unused"):
+            for i in range(0, num_slots):
+                cur_slot_dump = dev.get_slot_usage(slot=i)
+                if i == cur_slot and cur_slot_dump[1] != "unused":
+                    pk, addr = dev.get_address(incl_pubkey=True, cvc=known_cvc, slot=i)
+                elif i < cur_slot:
+                    addr = dev.get_address(incl_pubkey=False, slot=i)
+                else:
+                    #unused
+                    continue
 
-    if not dev.tr.is_emulator:
-        dev.certificate_check(pk)
+                # can be None if unused slot
+                assert addr[0:3] in { 'tb1', 'bc1' }
+                a2 = dev.address(faster=True, slot=i)
+                assert a2 == addr
+
+                if not dev.tr.is_emulator:
+                    dev.certificate_check(None if i == 9 else pk)
+        else:
+            pk, addr = dev.get_address(incl_pubkey=True, cvc=known_cvc, slot=cur_slot)
+            # can be None if unused slot
+            assert addr[0:3] in {'tb1', 'bc1'}
+            a2 = dev.address(faster=True, slot=cur_slot)
+            assert a2 == addr
+            if not dev.tr.is_emulator:
+                dev.certificate_check(None if cur_slot == 9 else pk)
+    else:
+        # tapsigner - cert check
+        if not dev.tr.is_emulator:
+            dev.certificate_check(None)
 
 
 @pytest.mark.device

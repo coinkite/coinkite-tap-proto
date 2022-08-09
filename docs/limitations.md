@@ -22,3 +22,10 @@
     - cannot pass `None` for a integer field; card may or may not work
 - card's output CBOR may not be always as concise as possible
 
+### LAST SLOT ISSUE (SC)
+- internal off-by-one error on all cards prior to and including version `1.0.0`
+- if SATSCARD have all 10 slots UNSEALED, `get_address` function returns None, None
+  instead of pubkey and address
+- in `cktap` version `1.1.1` workaround was introduced where one can get pubkey and corresponding address
+  with `get_address` but has to provide `cvc` (a.k.a. spending code) as named parameter to `get_address`
+

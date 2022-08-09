@@ -470,7 +470,8 @@ class CardState:
         was = self.cur_slot
         was.unseal()
 
-        self.active_slot += 1
+        if self.active_slot < 9:
+            self.active_slot += 1
 
         pk = xor_bytes(was.privkey, ses_key)
 
@@ -540,7 +541,7 @@ class CardState:
         self._new_nonce()
         rv = dict(slot=slot, card_nonce=self.nonce)
 
-        if slot < self.active_slot:
+        if not self.slots[slot].is_sealed:
             # unsealed slot
             if not ses_key:
                 rv['sealed'] = False

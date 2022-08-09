@@ -38,6 +38,18 @@ def my_hook(ty, val, tb):
         return _sys_excepthook(ty, val, tb)
 sys.excepthook=my_hook
 
+def to_be_slot(ui_slot):
+    # cards and back end count from 0 to 9  (10 slots)
+    # in ui this is converted to    1 to 10 (10 slots)
+    # to convert ui_slot to back end slot substract 1
+    return ui_slot - 1
+
+def to_ui_slot(be_slot):
+    # cards and back end count from 0 to 9  (10 slots)
+    # in ui this is converted to    1 to 10 (10 slots)
+    # to convert back end slot to ui slot add 1
+    return be_slot + 1
+
 def fail(msg):
     # show message and stop
     click.echo(f"FAILURE: {msg}", err=True)
@@ -274,18 +286,19 @@ def get_block_chain():
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 @click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
-@click.option('--slot', '-s', type=int, metavar="#", default=0, help="Slot number, default: zero")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", default=1, help="Slot number, default: 1")
 @click.option('--subpath', '-p', type=str, metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path. Tapsigner only!")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     """Sign a short text message"""
     card = get_card()
     cvc = cleanup_cvc(card, cvc)
+    be_slot = to_be_slot(slot)
 
     message = message.encode('ascii') if not isinstance(message, bytes) else message
     xmsg = b'\x18Bitcoin Signed Message:\n' + ser_compact_size(len(message)) + message
     md = sha256s(sha256s(xmsg))
     try:
-        rec_sig = card.sign_digest(cvc=cvc, digest=md, slot=slot, subpath=subpath)
+        rec_sig = card.sign_digest(cvc=cvc, digest=md, slot=be_slot, subpath=subpath)
     except ValueError as err:
         fail(str(err))
 
@@ -294,7 +307,7 @@ def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     if just_sig or card.is_tapsigner:
         click.echo(str(sig))
     else:
-        addr = card.get_address(slot=slot)
+        addr = card.get_address(slot=be_slot)
         if verbose:
             click.echo('-----BEGIN SIGNED MESSAGE-----\n{msg}\n-----BEGIN '
                       'SIGNATURE-----\n{addr}\n{sig}\n-----END SIGNED MESSAGE-----'.format(
@@ -334,8 +347,9 @@ def get_usage(cvc):
     print('------+----------+-------------')
     for slot in range(card.num_slots):
         addr, status, _ = card.get_slot_usage(slot, cvc=cvc)
-        
-        print('%3d   | %-8s | %s' % (slot, status, addr or ''))
+
+        # Display slot as n + 1
+        print('%3d   | %-8s | %s' % (to_ui_slot(slot), status, addr or ''))
 
 @main.command('address')
 def get_addr():
@@ -349,12 +363,12 @@ def get_addr():
     click.echo(addr)
 
 @main.command('open')
-@click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", default=None, help="Slot number (optional)")
 def get_addr_open_app(slot):
     "[SC] Get address and open associated local Bitcoin app to handle it"
     card = get_card(only_satscard=True)
-
-    addr = card.get_address(slot=slot)
+    be_slot = to_be_slot(slot)
+    addr = card.get_address(slot=be_slot)
     if not addr:
         fail("Current slot not yet setup and has no address.")
 
@@ -380,16 +394,16 @@ def get_nfc_url(open_browser):
 @click.option('--outfile', '-o', metavar="filename.png",
                         help="Save an SVG or PNG (depends on extension)", default=None,
                         type=click.File('wb'))
-@click.option('--slot', '-s', type=int, metavar="#", default=None, help="Slot number (optional)")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", default=None, help="Slot number (optional)")
 @click.option('--error-mode', '-e', default='L', metavar="L|M|H",
             help="Forward error correction level (L = low, H=High=bigger)")
 def get_deposit_qr(outfile, slot, error_mode):
     "[SC] Show current deposit address as a QR (or private key if unsealed)"
     import pyqrcode
-
+    be_slot = to_be_slot(slot) if slot is not None else None
     card = get_card(only_satscard=True)
 
-    addr = card.get_address(slot=slot)
+    addr = card.get_address(slot=be_slot)
     if not addr:
         fail("Current slot not yet setup and has no address.")
 
@@ -410,18 +424,19 @@ def get_deposit_qr(outfile, slot, error_mode):
         click.echo(f"Wrote {outfile.tell():,} bytes to: {outfile.name}", err=1)
 
 @main.command('dump')
-@click.argument('slot', type=int, metavar="[SLOT#]", required=False, default=0)
+@click.argument('slot', type=click.IntRange(min=1, max=10), metavar="[SLOT#]", required=False, default=1)
 @click.argument('cvc', type=str, metavar="[6-digit code]", required=False)
 def dump_slot(slot, cvc):
     "[SC] Show state of slot number indicated. Needs CVC to get more info on unsealed slots."
     # XXX too low-level/hexy
     card = get_card(only_satscard=True)
-
+    be_slot = to_be_slot(slot)
     cvc = cleanup_cvc(card, cvc, missing_ok=True)
-    session_key, resp = card.send_auth('dump', cvc, slot=slot)
+    session_key, resp = card.send_auth('dump', cvc, slot=be_slot)
     if 'privkey' in resp:
         resp['privkey'] = xor_bytes(session_key, resp['privkey'])
 
+    resp["slot"] = slot  # do not display backend option
     dump_dict(resp)
         
 @main.command('check')
@@ -508,10 +523,10 @@ def unseal_slot(cvc):
     pk, slot_num = card.unseal_slot(cvc)
 
     # show all the details
-    dump_key_info(slot_num, pk, is_testnet=card.is_testnet)
+    dump_key_info(to_ui_slot(slot_num), pk, is_testnet=card.is_testnet)
 
 @main.command('wif')
-@click.option('--slot', '-s', type=int, metavar="#", default=-1, help="Slot number, default: last used")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", help="Slot number, default: last used")
 @click.option('--bip178', '-8', is_flag=True, 
                 help="Use binary encoding defined in BIP-178")
 @click.option('--bare', is_flag=True, 
@@ -522,20 +537,32 @@ def dump_wif(cvc, slot, bip178, bare):
     card = get_card(only_satscard=True)
 
     # guess most useful slot to show
-    if slot == -1:
+    if slot is None:
         st = card.get_status()
         active = st['slots'][0]
-        slot = active-1 if active >= 1 else 0
+        _, _, slot_info = card.get_slot_usage(active)
+        sealed_or_unused = slot_info.get("sealed", not slot_info.get("used"))
+        if sealed_or_unused and active == 0:
+            fail(f"No unsealed slot. Please, unseal first slot.")
+            sys.exit(1)
+        elif sealed_or_unused:
+            # active is sealed, give him wif from previous which must be unsealed
+            be_slot = active - 1
+        else:
+            # active slot unsealed - give that wif
+            be_slot = active
+    else:
+        be_slot = to_be_slot(slot)
 
     if bip178:
         bare = True
 
     cvc = cleanup_cvc(card, cvc)
-    pk = card.get_privkey(cvc, slot)
+    pk = card.get_privkey(cvc, be_slot)
     wif = render_wif(pk, bip_178=bip178, electrum=(not bare), testnet=card.is_testnet)
 
     if not bare:
-        dump_key_info(slot, pk, wif, is_testnet=card.is_testnet)
+        dump_key_info(to_ui_slot(be_slot), pk, wif, is_testnet=card.is_testnet)
     else:
         click.echo(wif)
     
@@ -574,7 +601,7 @@ def setup_slot(cvc=None, chain_code=None, new_chain_code=True):
         resp = card.send('dump', slot=target)
 
         if resp.get('used', True):
-            fail(f"Slot {target} has been used already. Unseal it, and move to next")
+            fail(f"Slot {to_ui_slot(target)} has been used already. Unseal it, and move to next")
 
     args = dict(slot=target)
 
@@ -628,7 +655,7 @@ def show_balance(cvc):
 
 @main.command('core')
 @click.option('--pretty', '-p', is_flag=True, help="Pretty-print JSON")
-@click.option('--slot', '-s', multiple=True, type=click.IntRange(min=0, max=9))
+@click.option('--slot', '-s', multiple=True, type=click.IntRange(min=1, max=10))
 @click.argument('cvc', type=str, metavar="(6-digit code)", required=False)
 def export_to_core(cvc, pretty, slot):
     "[SC] Show JSON needed to import keys into Bitcoin Core"
@@ -655,12 +682,12 @@ def export_to_core(cvc, pretty, slot):
         label=""  # label will be set to slot number
     )
     descriptor_list = []
-    for _slot in range(card.active_slot+1):
-        if slot and _slot not in slot:
+    for be_slot in range(card.active_slot+1):
+        if slot and to_ui_slot(be_slot) not in slot:
             continue
         item = deepcopy(shared)
-        item["label"] = f"{card.card_ident}_slot{_slot}"
-        session_key, here = card.send_auth('dump', cvc, slot=_slot)
+        item["label"] = f"{card.card_ident}_slot{to_ui_slot(be_slot)}"
+        session_key, here = card.send_auth('dump', cvc, slot=be_slot)
 
         if here.get('used') is False:
             continue
@@ -710,7 +737,7 @@ def card_status():
         else:
             print(f'No key picked yet')
     else:
-        print(f'Active Slot: {card.active_slot or "first"}')
+        print(f'Active Slot: {to_ui_slot(card.active_slot)}')
         print(f'Address: {card.get_address()}')
 
 @main.command('xpub')
