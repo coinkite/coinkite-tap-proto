@@ -23,14 +23,7 @@ def header_from_rec_id(rec_id: int) -> bytes:
 
 
 def rec_id_from_header(header: int) -> int:
-    header_num = header & 0xFF
-    if header_num >= 39:
-        header_num -= 12
-    elif header_num >= 35:
-        header_num -= 8
-    elif header_num >= 31:
-        header_num -= 4
-    rec_id = header_num - 27
+    rec_id = (header - 27) & 0x03
     return rec_id
 
 
@@ -40,8 +33,7 @@ def CT_pick_keypair() -> Tuple[bytes, bytes]:
         try:
             sk = secret_bytes = os.urandom(32)
             ec_seckey_verify(secret_bytes)
-            pub = ec_pubkey_create(secret_bytes)
-            pk = ec_pubkey_serialize(pub, compressed=True)
+            pk = CT_priv_to_pubkey(secret_bytes)
             return sk, pk
         except:
             continue
