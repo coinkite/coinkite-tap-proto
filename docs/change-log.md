@@ -5,6 +5,12 @@ The "applet" reports a version number in the status field (`ver`) as a short str
 
 This document explains differences between versions.
 
+## 1.0.3 - September 2022
+
+- Enhancement: SATSCARD's unsealed slots, when 'dump' command is used, will share
+  compressed pubkey in addition to address.
+
+
 ## 1.0.2 - Mid July 2022
 
 - Bugfix: too-short or too-long CVC codes did not count towards

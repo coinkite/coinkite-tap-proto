@@ -1,3 +1,7 @@
+# 1.2.1
+- enhancement: take advantage of v1.0.3 on SATSCARD which shares pubkey on unsealed slots
+
+
 # 1.2.0
 - fix: `wif` cli command to properly handle last slot
 - workaround: last slot bug - check `docs/limitations.md`

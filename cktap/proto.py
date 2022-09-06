@@ -123,11 +123,11 @@ class CKTapCard:
     def get_address(self, faster=False, incl_pubkey=False, slot=None, cvc=None):
         # Get current payment address for card
         # - does 100% full verification by default
-        # - returns a bech32 address as a string
+        # - returns a bech32 address as a string, or tuple(compressed_pubkey, bech32),
         assert not self.is_tapsigner
 
         LAST_SLOT = NUM_SLOTS - 1
-        # card firmware <= 1.0.0 contains off by one bug
+        # card firmware <= 1.0.2 contains off by one bug
         # to get pubkey of last slot one has to provide cvc
         # if incl_pubkey=True and (slot=9 or (slot=None and cur_slot=9)) and cvc=None
         # then pubkey is None and only address is returned
@@ -140,13 +140,18 @@ class CKTapCard:
             slot = cur_slot
 
         if ('addr' not in st) and (cur_slot == slot) and slot != 9: # last slot is exception
-            #raise ValueError("Current slot is not yet setup.")
+            # Current slot is not yet setup.
             return (None, None) if incl_pubkey else None
 
         if slot == cur_slot == LAST_SLOT:  # last slot (all UNSEALED)
             rr = self.send('dump', slot=slot)
             addr = rr["addr"]
             if incl_pubkey:
+                if 'pubkey' in rr:
+                    # v1.0.3 and later: pubkey is provided in un-auth reply
+                    return rr['pubkey'], addr
+
+                # before v1.0.3, auth will be needed for this case
                 ses_key, rr = self.send_auth('dump', cvc=cvc, slot=slot)
                 pubkey = rr.get("pubkey")
                 # exit is needed here in this special case as we cannot reach verification - would fail
@@ -159,11 +164,16 @@ class CKTapCard:
             # Use the unauthenticated "dump" command.
             rr = self.send('dump', slot=slot)
 
-            assert not incl_pubkey, 'can only get pubkey on current slot'
+            if incl_pubkey:
+                if 'pubkey' in rr:
+                    # after v1.0.3 pubkey is provided in un-auth reply
+                    return rr['pubkey'], rv['addr']
+
+                raise RuntimeError('can only get pubkey for current slot')
 
             return rr['addr']
 
-        # Use special-purpose "read" command
+        # Use special-purpose "read" command for current (sealed) slot.
         n = pick_nonce()
         rr = self.send('read', nonce=n)
 

@@ -94,7 +94,6 @@ def get_card(only_satscard=False, only_tapsigner=False, only_chip=False):
         
 
 def dump_dict(d):
-
     for k,v in d.items():
         if k == 'card_nonce':
             # no point showing this value
@@ -436,7 +435,8 @@ def dump_slot(slot, cvc):
     if 'privkey' in resp:
         resp['privkey'] = xor_bytes(session_key, resp['privkey'])
 
-    resp["slot"] = slot  # do not display backend option
+    resp["slot"] = slot                     # for programmers
+    resp["slot_human"] = to_ui_slot(slot)   # for humans
     dump_dict(resp)
         
 @main.command('check')

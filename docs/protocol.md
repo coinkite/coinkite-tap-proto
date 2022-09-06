@@ -746,7 +746,11 @@ Unsealing a slot updates the state, but no new key is picked. To use the card ag
 
 ### `dump`
 
-This reveals the details for all previous slots, all at once. The current slot is not affected. This is a no-op in terms of response content if slots aren't available yet, or if a slot hasn't been unsealed. (i.e., an empty list). The factory uses this to verify the CVC is printed correctly without side effects.
+This reveals the details for any slot. The
+current slot is not affected. This is a no-op in terms of response
+content, if slots aren't available yet, or if a slot hasn't been
+unsealed. The factory uses this to verify
+the CVC is printed correctly without side effects.
 
 ```python
 {
@@ -757,9 +761,11 @@ This reveals the details for all previous slots, all at once. The current slot i
 }
 ```
 
-If the `epubkey` or `xcvc` is absent, the command still works, but the only information shared about an unsealed slot is status (sealed/unused/used).
+If the `epubkey` or `xcvc` is absent, the command still works, but
+the no sensitive information is shared.
 
-Incorrect auth values for `xcvc` should fail as normal.
+Incorrect auth values for `xcvc` will fail as normal. Omit the `xcvc` and `epubkey`
+value to proceed without authentication if CVC is unknown.
 
 Response for a used slot with XCVC provided:
 
@@ -781,22 +787,26 @@ The `tampered` field is only present (and True) if the slot was unsealed due to 
 In other words, if the card unsealed itself rather than via a
 successful `unseal` command.
 
-If the XCVC (and/or `epubkey`) is not provided, then the response contains the full payment address and indicates it is unsealed:
+If the XCVC (and/or `epubkey`) is not provided, then the response
+contains the full payment address and indicates it is unsealed. In
+version 1.0.3 and later, the full compressed pubkey for the payment
+address is also provided.
 
 ```python
 {
     'slot': 0,                     # which slot is being dumped
     'sealed': False,
-    'addr': 'bc1qsqkhv..qf735wvl3lh8',   # full payment address
+    'addr': 'bc1qsqkhv..qf735wvl3lh8',   # full payment address (not censored)
+    'pubkey': (33 bytes),          # public key corresponding to payment address (since v1.0.3)
     'card_nonce': (16 bytes)       # new nonce value, for NEXT command (not this one)
 }
 ```
 
-The response for an unused slot (no XCVC provided):
+The response for an unused slot (no CVC provided):
 
 ```python
 {
-    'slot': 0,                     # which slot is being dumped
+    'slot': 2,                     # which slot is being dumped
     'used': False,
     'card_nonce': (16 bytes)       # new nonce value, for NEXT command (not this one)
 }
