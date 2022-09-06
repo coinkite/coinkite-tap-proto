@@ -435,8 +435,8 @@ def dump_slot(slot, cvc):
     if 'privkey' in resp:
         resp['privkey'] = xor_bytes(session_key, resp['privkey'])
 
-    resp["slot"] = slot                     # for programmers
-    resp["slot_human"] = to_ui_slot(slot)   # for humans
+    resp["slot"] = be_slot      # for programmers
+    resp["slot_human"] = slot   # for humans
     dump_dict(resp)
         
 @main.command('check')
@@ -601,6 +601,8 @@ def setup_slot(cvc=None, chain_code=None, new_chain_code=True):
         resp = card.send('dump', slot=target)
 
         if resp.get('used', True):
+            if target == card.num_slots-1:
+                fail(f"Card is fully used. No more slots available.")
             fail(f"Slot {to_ui_slot(target)} has been used already. Unseal it, and move to next")
 
     args = dict(slot=target)
