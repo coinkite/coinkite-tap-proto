@@ -26,18 +26,19 @@ your users with a digits-only on-screen keyboard.
 1. Do not prompt for CVC (PIN code) unless you truly need it. For example, if you
 are showing the "balance" there is no need for the code. If the user is verifying
 someone else's card (for example, before a business transaction is completed),
-then you've risked the funds involved. In many cases, if you can make the CVC
+then you've risked the funds involved if the CVC is required. In many cases,
+if you can make the CVC
 **optional** you've got the best of all worlds: owners of the card, who
 trust your app, can make use of the CVC and others do not need to.
 
-2. Highlight when slot zero is unsealed. It is not bad or wrong, but it
-means that the QR code printed on the card back should no longer
-be used. The assumption is once a slot is unsealed, the private key
-is public.
+2. Highlight when the first slot is unsealed. It is not bad or
+wrong, but it means that the QR code printed on the card back should
+no longer be used. The assumption is once a slot is unsealed, the
+private key is public.
 
 3. Not all SATSCARD will have a printed QR on the back. For now,
-all cards will have slot zero picked at factory, but we may ship
-a SATSCARD someday with slot zero unused. In that case, the `chain_code`
+all cards will have the first slot picked at factory, but we may ship
+a SATSCARD someday with the first slot unused. In that case, the `chain_code`
 argument to `setup` must be provided by your app (32-byte nonce).
 
 4. When unsealing a slot, you should probably setup the next slot in the
