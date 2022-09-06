@@ -200,7 +200,7 @@ class CardState:
     num_backups: int = 0
     aes_key: (None, bytes) = None
 
-    def __init__(self, applet_version='1.0.1'):
+    def __init__(self, applet_version='1.0.3'):
         self.card_privkey, self.card_pubkey = pick_keypair()
         self.slots = [KeySlot() for i in range(NUM_SLOTS)]
         self.active_slot = 0
@@ -546,6 +546,7 @@ class CardState:
             if not ses_key:
                 rv['sealed'] = False
                 rv['addr'] = self.slots[slot].addr
+                rv['pubkey'] = self.slots[slot].pubkey      # new in v1.0.3
             else:
                 # they have CVC
                 was = self._check_visible_slot(slot)
