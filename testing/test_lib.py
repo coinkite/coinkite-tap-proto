@@ -219,6 +219,13 @@ def test_dump_unauth(dev):
             assert s in {True, False}
             addr = d.pop('addr')
             assert '___' not in addr
+
+            pubkey = d.pop('pubkey', None)
+            if pubkey is None:
+                # older versions lack this field
+                assert dev.applet_version in { '1.0.0', '0.9.0', '1.0.1', '1.0.2' }
+            else:
+                assert addr == render_address(pubkey, dev.is_testnet)
         elif s == True:
             addr = d.pop('addr', None)
             if addr:
