@@ -42,13 +42,13 @@ def to_be_slot(ui_slot):
     # cards and back end count from 0 to 9  (10 slots)
     # in ui this is converted to    1 to 10 (10 slots)
     # to convert ui_slot to back end slot substract 1
-    return ui_slot - 1
+    return None if ui_slot is None else (ui_slot - 1)
 
 def to_ui_slot(be_slot):
     # cards and back end count from 0 to 9  (10 slots)
     # in ui this is converted to    1 to 10 (10 slots)
     # to convert back end slot to ui slot add 1
-    return be_slot + 1
+    return None if be_slot is None else (be_slot + 1)
 
 def fail(msg):
     # show message and stop
@@ -216,7 +216,7 @@ def main(**kws):
 
     if rc:
         rc = bytes.fromhex(rc)
-        assert len(rc) == 33 and rc[0] in { 2, 3}
+        assert len(rc) == 33 and rc[0] in {2, 3}
         from .constants import FACTORY_ROOT_KEYS
         FACTORY_ROOT_KEYS.clear()
         FACTORY_ROOT_KEYS[rc] = 'BOGUS CLI ROOT CERT'
@@ -285,7 +285,8 @@ def get_block_chain():
 @click.argument('cvc', type=str, metavar="(6-digit # code)", required=False)
 @click.option('--verbose', '-v', is_flag=True, help='[SC] Include full ascii armour')
 @click.option('--just-sig', '-j', is_flag=True, help='Just the signature itself, nothing more')
-@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", default=1, help="Slot number, default: 1")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10),
+                                    metavar="#", default=1, help="Slot number, default: 1")
 @click.option('--subpath', '-p', type=str, metavar="0/0", help="Unhardened path (of max length 2) added to current card derivation path. Tapsigner only!")
 def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     """Sign a short text message"""
@@ -351,18 +352,29 @@ def get_usage(cvc):
         print('%3d   | %-8s | %s' % (to_ui_slot(slot), status, addr or ''))
 
 @main.command('address')
-def get_addr():
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#",
+                                default=None, help="Slot number (optional)")
+@click.option('--pubkey', '-p', is_flag=True, help="Show full pubkey instead of address")
+def get_addr(slot, pubkey):
     "[SC] Show current deposit address"
     card = get_card(only_satscard=True)
+    be_slot = to_be_slot(slot)
 
-    addr = card.get_address()
-    if not addr:
-        fail("Current slot not yet setup and has no address.")
+    if not pubkey:
+        addr = card.get_address(slot=be_slot)
+        if not addr:
+            fail("Current slot not yet setup and has no address.")
+        click.echo(addr)
+    else:
+        pubkey, addr = card.get_address(slot=be_slot, incl_pubkey=True)
+        if not addr or not pubkey:
+            fail("Current slot not yet setup and has no address nor pubkey.")
+        click.echo(B2A(pubkey))
 
-    click.echo(addr)
 
 @main.command('open')
-@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#", default=None, help="Slot number (optional)")
+@click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#",
+                                default=None, help="Slot number (optional)")
 def get_addr_open_app(slot):
     "[SC] Get address and open associated local Bitcoin app to handle it"
     card = get_card(only_satscard=True)
@@ -399,7 +411,7 @@ def get_nfc_url(open_browser):
 def get_deposit_qr(outfile, slot, error_mode):
     "[SC] Show current deposit address as a QR (or private key if unsealed)"
     import pyqrcode
-    be_slot = to_be_slot(slot) if slot is not None else None
+    be_slot = to_be_slot(slot)
     card = get_card(only_satscard=True)
 
     addr = card.get_address(slot=be_slot)
@@ -437,6 +449,7 @@ def dump_slot(slot, cvc):
 
     resp["slot"] = be_slot      # for programmers
     resp["slot_human"] = slot   # for humans
+
     dump_dict(resp)
         
 @main.command('check')
@@ -685,7 +698,7 @@ def export_to_core(cvc, pretty, slot):
     )
     descriptor_list = []
     for be_slot in range(card.active_slot+1):
-        if slot and to_ui_slot(be_slot) not in slot:
+        if slot and (to_ui_slot(be_slot) not in slot):
             continue
         item = deepcopy(shared)
         item["label"] = f"{card.card_ident}_slot{to_ui_slot(be_slot)}"

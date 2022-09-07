@@ -1,6 +1,8 @@
 # 1.2.1
 - enhancement: take advantage of v1.0.3 on SATSCARD which shares pubkey on unsealed slots
-
+- enhancement: add optional slot number to `cktap address` command 
+- enhancement: export pubkey using `cktap address --pubkey` argument
+- bugfix: `cktap open` (no slot number) would fail
 
 # 1.2.0
 - fix: `wif` cli command to properly handle last slot

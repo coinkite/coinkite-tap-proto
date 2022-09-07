@@ -206,7 +206,7 @@ def recover_address(status_resp, read_resp, my_nonce):
     # Critical: proves card knows key
     ok = CT_sig_verify(pubkey, sha256s(msg), read_resp['sig'])
     if not ok:
-        raise RuntimeError("Bad sig in recover_address")
+        raise RuntimeError("recover_address: Bad signature")
 
     expect = status_resp['addr']
     left = expect[0:expect.find('_')]
@@ -217,7 +217,7 @@ def recover_address(status_resp, read_resp, my_nonce):
     if not (addr.startswith(left)
                 and addr.endswith(right)
                 and len(left) == len(right) == ADDR_TRIM):
-        raise RuntimeError("Corrupt response")
+        raise RuntimeError("recover_address: Corrupt response")
 
     return pubkey, addr
 
