@@ -468,9 +468,10 @@ class CardState:
 
         # looks ok, do the unseal
         was = self.cur_slot
+        assert was.is_sealed, 'already unsealed'        # can happen when card consumed
         was.unseal()
 
-        if self.active_slot < 9:
+        if self.active_slot < (NUM_SLOTS-1):
             self.active_slot += 1
 
         pk = xor_bytes(was.privkey, ses_key)
@@ -537,8 +538,8 @@ class CardState:
             ses_key = None
         else:
             ses_key = self._validate_cvc('dump', epubkey, xcvc)
+            self._new_nonce()
 
-        self._new_nonce()
         rv = dict(slot=slot, card_nonce=self.nonce)
 
         if not self.slots[slot].is_sealed:
