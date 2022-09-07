@@ -538,8 +538,8 @@ class CardState:
             ses_key = None
         else:
             ses_key = self._validate_cvc('dump', epubkey, xcvc)
-            self._new_nonce()
 
+        self._new_nonce()       # bug compatible w/ card: always updates nonce, even if unauth'd
         rv = dict(slot=slot, card_nonce=self.nonce)
 
         if not self.slots[slot].is_sealed:
