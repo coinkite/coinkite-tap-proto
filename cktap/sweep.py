@@ -31,8 +31,11 @@ class NetConnection:
 
         # I want no user-agent header at all, so have to
         # use this one strange hack on urllib3...
-        from urllib3.util import SKIP_HEADER
-        self.ses.headers['user-agent'] = SKIP_HEADER
+        try:
+            from urllib3.util import SKIP_HEADER
+            self.ses.headers['user-agent'] = SKIP_HEADER
+        except ImportError:
+            pass
 
     def tor_upgrade(self):
         # See if Tor is running, if so, apply socks-proxy details
