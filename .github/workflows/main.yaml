@@ -85,13 +85,13 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install tor
-        run: |
-          wget https://dist.torproject.org/torbrowser/11.5.1/tor-win64-0.4.7.8.zip -O tor-win64-0.4.7.8.zip
-          7z x tor-win64-0.4.7.8.zip
-          cd Tor
-          Start-Process "tor.exe" -WindowStyle Hidden
-        shell: powershell
+#      - name: Install tor
+#        run: |
+#          wget https://dist.torproject.org/torbrowser/11.5.1/tor-win64-0.4.7.8.zip -O tor-win64-0.4.7.8.zip
+#          7z x tor-win64-0.4.7.8.zip
+#          cd Tor
+#          Start-Process "tor.exe" -WindowStyle Hidden
+#        shell: powershell
       - name: Install cktap dependencies
         run: |
           pip install -U pip wheel
@@ -99,7 +99,7 @@ jobs:
         shell: powershell
       - name: Run non-device test
         run: |
-          pytest -m "not device and not crypto" -vvv
+          pytest -m "not device and not crypto" -k "not test_useragent" -vvv
       - name: Run crypto comparison tests
         run: |
           pip install wallycore coincurve
