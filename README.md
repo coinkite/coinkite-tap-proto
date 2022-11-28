@@ -70,6 +70,7 @@ reflected in the installed version.
     - **ACS ACR1252U** - okay and widely available, and for sale by Coinkite
     - **Identiv uTrust 3700F** - reliable and looks nice
     - **HID Omnikey 5022 CL** (not 5021) - fast, cute, and small
+    - **HID OmniKey 5427 CK** - tested Gen1 device, fast, reliable, must disable keyboard wedge via EEM interface on device at `http://192.168.63.99/`, when correct will identify as VID:PID `076b:5427`
     - **NOT recommended:** ACS ACR122U. It can work, and is widely available, but is not reliable.
 - See `requirements.txt` file for python packages needed.
 
