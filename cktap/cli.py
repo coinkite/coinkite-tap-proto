@@ -946,7 +946,14 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         sys.exit(1)
     subpath = '420/69'
 
-    my_pubkey = card.get_pubkey(cvc, subpath=subpath)
+    try:
+        my_pubkey = card.get_pubkey(cvc, subpath=subpath)
+    except CardRuntimeError:
+        # wrong cvc -> prompt
+        cvc = getpass("Enter spending code: ")
+        cvc = cleanup_cvc(card, cvc)
+        my_pubkey = card.get_pubkey(cvc, subpath=subpath)
+
     my_address = render_address(my_pubkey)
 
     ses = requests.Session()
