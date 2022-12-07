@@ -26,8 +26,8 @@ def sha256s(msg):
 
 def hash160(x):
     # classic bitcoin nested hashes
-    from .ripemd import RIPEMD160
-    return RIPEMD160(sha256s(x)).digest()
+    from .ripemd import ripemd160
+    return ripemd160(sha256s(x))
 
 # Other codes must be implemented elsewhere...
 #

@@ -18,16 +18,6 @@ HARDENED = 2 ** 31
 Prv_or_PubKeyNode = Union["PrvKeyNode", "PubKeyNode"]
 
 
-def hash160(s: bytes) -> bytes:
-    """
-    sha256 followed by ripemd160
-
-    :param s: data
-    :return: hashed data
-    """
-    return hashlib.new('ripemd160', hashlib.sha256(s).digest()).digest()
-
-
 def big_endian_to_int(b: bytes) -> int:
     """
     Big endian representation to integer.
@@ -184,6 +174,7 @@ class PubKeyNode(object):
 
         :return: first four bytes of SHA256(RIPEMD160(public key))
         """
+        from cktap.compat import hash160
         return hash160(self.sec())[:4]
 
     @classmethod
