@@ -969,6 +969,7 @@ def emulate_card(pipe, factory=False, tapsigner=False, no_init=False, satschip=F
         if satschip:
             args['satschip'] = True
             args['tapsigner'] = True
+            args['url'] = 'satschip.com/start#'
             args.pop('aes_key')
 
         if tapsigner or satschip:
