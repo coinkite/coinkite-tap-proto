@@ -1,393 +1,130 @@
-## ripemd.py - pure Python implementation of the RIPEMD-160 algorithm.
-## Bjorn Edstrom <be@bjrn.se> 16 december 2007.
-##
-## Copyrights
-## ==========
-##
-## This code is a derived from an implementation by Markus Friedl which is
-## subject to the following license. This Python implementation is not
-## subject to any other license.
-##
-##/*
-## * Copyright (c) 2001 Markus Friedl.  All rights reserved.
-## *
-## * Redistribution and use in source and binary forms, with or without
-## * modification, are permitted provided that the following conditions
-## * are met:
-## * 1. Redistributions of source code must retain the above copyright
-## *    notice, this list of conditions and the following disclaimer.
-## * 2. Redistributions in binary form must reproduce the above copyright
-## *    notice, this list of conditions and the following disclaimer in the
-## *    documentation and/or other materials provided with the distribution.
-## *
-## * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-## * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-## * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-## * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-## * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-## * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-## * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-## * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-## * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-## * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-## */
-##/*
-## * Preneel, Bosselaers, Dobbertin, "The Cryptographic Hash Function RIPEMD-160",
-## * RSA Laboratories, CryptoBytes, Volume 3, Number 2, Autumn 1997,
-## * ftp://ftp.rsasecurity.com/pub/cryptobytes/crypto3n2.pdf
-## */
+# Copyright (c) 2021 Pieter Wuille
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+"""Test-only pure Python RIPEMD160 implementation."""
 
-#block_size = 1
-digest_size = 20
-digestsize = 20
+import unittest
 
-class RIPEMD160:
-    """Return a new RIPEMD160 object. An optional string argument
-    may be provided; if present, this string will be automatically
-    hashed."""
+# Message schedule indexes for the left path.
+ML = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
+    3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12,
+    1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2,
+    4, 0, 5, 9, 7, 12, 2, 10, 14, 1, 3, 8, 11, 6, 15, 13
+]
 
-    def __init__(self, arg=None):
-        self.ctx = RMDContext()
-        if arg:
-            self.update(arg)
-        self.dig = None
+# Message schedule indexes for the right path.
+MR = [
+    5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
+    6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
+    15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13,
+    8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14,
+    12, 15, 10, 4, 1, 5, 8, 7, 6, 2, 13, 14, 0, 3, 9, 11
+]
 
-    def update(self, arg):
-        """update(arg)"""
-        RMD160Update(self.ctx, arg, len(arg))
-        self.dig = None
+# Rotation counts for the left path.
+RL = [
+    11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
+    7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
+    11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5,
+    11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12,
+    9, 15, 5, 11, 6, 8, 13, 12, 5, 12, 13, 14, 11, 8, 5, 6
+]
 
-    def digest(self):
-        """digest()"""
-        if self.dig:
-            return self.dig
-        ctx = self.ctx.copy()
-        self.dig = RMD160Final(self.ctx)
-        self.ctx = ctx
-        return self.dig
+# Rotation counts for the right path.
+RR = [
+    8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
+    9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
+    9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5,
+    15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8,
+    8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11
+]
 
-    def hexdigest(self):
-        """hexdigest()"""
-        dig = self.digest()
-        hex_digest = ''
-        for d in dig:
-            hex_digest += '%02x' % d
-        return hex_digest
+# K constants for the left path.
+KL = [0, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xa953fd4e]
 
-    def copy(self):
-        """copy()"""
-        import copy
-        return copy.deepcopy(self)
+# K constants for the right path.
+KR = [0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0]
 
 
-
-def new(arg=None):
-    """Return a new RIPEMD160 object. An optional string argument
-    may be provided; if present, this string will be automatically
-    hashed."""
-    return RIPEMD160(arg)
-
-
-
-#
-# Private.
-#
-
-class RMDContext:
-    def __init__(self):
-        self.state = [0x67452301, 0xEFCDAB89, 0x98BADCFE,
-                      0x10325476, 0xC3D2E1F0] # uint32
-        self.count = 0 # uint64
-        self.buffer = [0]*64 # uchar
-    def copy(self):
-        ctx = RMDContext()
-        ctx.state = self.state[:]
-        ctx.count = self.count
-        ctx.buffer = self.buffer[:]
-        return ctx
-
-K0 = 0x00000000
-K1 = 0x5A827999
-K2 = 0x6ED9EBA1
-K3 = 0x8F1BBCDC
-K4 = 0xA953FD4E
-
-KK0 = 0x50A28BE6
-KK1 = 0x5C4DD124
-KK2 = 0x6D703EF3
-KK3 = 0x7A6D76E9
-KK4 = 0x00000000
-
-def ROL(n, x):
-    return ((x << n) & 0xffffffff) | (x >> (32 - n))
-
-def F0(x, y, z):
-    return x ^ y ^ z
-
-def F1(x, y, z):
-    return (x & y) | (((~x) % 0x100000000) & z)
-
-def F2(x, y, z):
-    return (x | ((~y) % 0x100000000)) ^ z
-
-def F3(x, y, z):
-    return (x & z) | (((~z) % 0x100000000) & y)
-
-def F4(x, y, z):
-    return x ^ (y | ((~z) % 0x100000000))
-
-def R(a, b, c, d, e, Fj, Kj, sj, rj, X):
-    a = ROL(sj, (a + Fj(b, c, d) + X[rj] + Kj) % 0x100000000) + e
-    c = ROL(10, c)
-    return a % 0x100000000, c
-
-PADDING = [0x80] + [0]*63
-
-import sys
-import struct
-
-def RMD160Transform(state, block): #uint32 state[5], uchar block[64]
-    x = [0]*16
-    if sys.byteorder == 'little':
-        x = struct.unpack('<16L', bytes([x for x in block[0:64]]))
+def fi(x, y, z, i):
+    """The f1, f2, f3, f4, and f5 functions from the specification."""
+    if i == 0:
+        return x ^ y ^ z
+    elif i == 1:
+        return (x & y) | (~x & z)
+    elif i == 2:
+        return (x | ~y) ^ z
+    elif i == 3:
+        return (x & z) | (y & ~z)
+    elif i == 4:
+        return x ^ (y | ~z)
     else:
-        raise "Error!!"
-    a = state[0]
-    b = state[1]
-    c = state[2]
-    d = state[3]
-    e = state[4]
-
-    #/* Round 1 */
-    a, c = R(a, b, c, d, e, F0, K0, 11,  0, x);
-    e, b = R(e, a, b, c, d, F0, K0, 14,  1, x);
-    d, a = R(d, e, a, b, c, F0, K0, 15,  2, x);
-    c, e = R(c, d, e, a, b, F0, K0, 12,  3, x);
-    b, d = R(b, c, d, e, a, F0, K0,  5,  4, x);
-    a, c = R(a, b, c, d, e, F0, K0,  8,  5, x);
-    e, b = R(e, a, b, c, d, F0, K0,  7,  6, x);
-    d, a = R(d, e, a, b, c, F0, K0,  9,  7, x);
-    c, e = R(c, d, e, a, b, F0, K0, 11,  8, x);
-    b, d = R(b, c, d, e, a, F0, K0, 13,  9, x);
-    a, c = R(a, b, c, d, e, F0, K0, 14, 10, x);
-    e, b = R(e, a, b, c, d, F0, K0, 15, 11, x);
-    d, a = R(d, e, a, b, c, F0, K0,  6, 12, x);
-    c, e = R(c, d, e, a, b, F0, K0,  7, 13, x);
-    b, d = R(b, c, d, e, a, F0, K0,  9, 14, x);
-    a, c = R(a, b, c, d, e, F0, K0,  8, 15, x); #/* #15 */
-    #/* Round 2 */
-    e, b = R(e, a, b, c, d, F1, K1,  7,  7, x);
-    d, a = R(d, e, a, b, c, F1, K1,  6,  4, x);
-    c, e = R(c, d, e, a, b, F1, K1,  8, 13, x);
-    b, d = R(b, c, d, e, a, F1, K1, 13,  1, x);
-    a, c = R(a, b, c, d, e, F1, K1, 11, 10, x);
-    e, b = R(e, a, b, c, d, F1, K1,  9,  6, x);
-    d, a = R(d, e, a, b, c, F1, K1,  7, 15, x);
-    c, e = R(c, d, e, a, b, F1, K1, 15,  3, x);
-    b, d = R(b, c, d, e, a, F1, K1,  7, 12, x);
-    a, c = R(a, b, c, d, e, F1, K1, 12,  0, x);
-    e, b = R(e, a, b, c, d, F1, K1, 15,  9, x);
-    d, a = R(d, e, a, b, c, F1, K1,  9,  5, x);
-    c, e = R(c, d, e, a, b, F1, K1, 11,  2, x);
-    b, d = R(b, c, d, e, a, F1, K1,  7, 14, x);
-    a, c = R(a, b, c, d, e, F1, K1, 13, 11, x);
-    e, b = R(e, a, b, c, d, F1, K1, 12,  8, x); #/* #31 */
-    #/* Round 3 */
-    d, a = R(d, e, a, b, c, F2, K2, 11,  3, x);
-    c, e = R(c, d, e, a, b, F2, K2, 13, 10, x);
-    b, d = R(b, c, d, e, a, F2, K2,  6, 14, x);
-    a, c = R(a, b, c, d, e, F2, K2,  7,  4, x);
-    e, b = R(e, a, b, c, d, F2, K2, 14,  9, x);
-    d, a = R(d, e, a, b, c, F2, K2,  9, 15, x);
-    c, e = R(c, d, e, a, b, F2, K2, 13,  8, x);
-    b, d = R(b, c, d, e, a, F2, K2, 15,  1, x);
-    a, c = R(a, b, c, d, e, F2, K2, 14,  2, x);
-    e, b = R(e, a, b, c, d, F2, K2,  8,  7, x);
-    d, a = R(d, e, a, b, c, F2, K2, 13,  0, x);
-    c, e = R(c, d, e, a, b, F2, K2,  6,  6, x);
-    b, d = R(b, c, d, e, a, F2, K2,  5, 13, x);
-    a, c = R(a, b, c, d, e, F2, K2, 12, 11, x);
-    e, b = R(e, a, b, c, d, F2, K2,  7,  5, x);
-    d, a = R(d, e, a, b, c, F2, K2,  5, 12, x); #/* #47 */
-    #/* Round 4 */
-    c, e = R(c, d, e, a, b, F3, K3, 11,  1, x);
-    b, d = R(b, c, d, e, a, F3, K3, 12,  9, x);
-    a, c = R(a, b, c, d, e, F3, K3, 14, 11, x);
-    e, b = R(e, a, b, c, d, F3, K3, 15, 10, x);
-    d, a = R(d, e, a, b, c, F3, K3, 14,  0, x);
-    c, e = R(c, d, e, a, b, F3, K3, 15,  8, x);
-    b, d = R(b, c, d, e, a, F3, K3,  9, 12, x);
-    a, c = R(a, b, c, d, e, F3, K3,  8,  4, x);
-    e, b = R(e, a, b, c, d, F3, K3,  9, 13, x);
-    d, a = R(d, e, a, b, c, F3, K3, 14,  3, x);
-    c, e = R(c, d, e, a, b, F3, K3,  5,  7, x);
-    b, d = R(b, c, d, e, a, F3, K3,  6, 15, x);
-    a, c = R(a, b, c, d, e, F3, K3,  8, 14, x);
-    e, b = R(e, a, b, c, d, F3, K3,  6,  5, x);
-    d, a = R(d, e, a, b, c, F3, K3,  5,  6, x);
-    c, e = R(c, d, e, a, b, F3, K3, 12,  2, x); #/* #63 */
-    #/* Round 5 */
-    b, d = R(b, c, d, e, a, F4, K4,  9,  4, x);
-    a, c = R(a, b, c, d, e, F4, K4, 15,  0, x);
-    e, b = R(e, a, b, c, d, F4, K4,  5,  5, x);
-    d, a = R(d, e, a, b, c, F4, K4, 11,  9, x);
-    c, e = R(c, d, e, a, b, F4, K4,  6,  7, x);
-    b, d = R(b, c, d, e, a, F4, K4,  8, 12, x);
-    a, c = R(a, b, c, d, e, F4, K4, 13,  2, x);
-    e, b = R(e, a, b, c, d, F4, K4, 12, 10, x);
-    d, a = R(d, e, a, b, c, F4, K4,  5, 14, x);
-    c, e = R(c, d, e, a, b, F4, K4, 12,  1, x);
-    b, d = R(b, c, d, e, a, F4, K4, 13,  3, x);
-    a, c = R(a, b, c, d, e, F4, K4, 14,  8, x);
-    e, b = R(e, a, b, c, d, F4, K4, 11, 11, x);
-    d, a = R(d, e, a, b, c, F4, K4,  8,  6, x);
-    c, e = R(c, d, e, a, b, F4, K4,  5, 15, x);
-    b, d = R(b, c, d, e, a, F4, K4,  6, 13, x); #/* #79 */
-
-    aa = a;
-    bb = b;
-    cc = c;
-    dd = d;
-    ee = e;
-
-    a = state[0]
-    b = state[1]
-    c = state[2]
-    d = state[3]
-    e = state[4]
-
-    #/* Parallel round 1 */
-    a, c = R(a, b, c, d, e, F4, KK0,  8,  5, x)
-    e, b = R(e, a, b, c, d, F4, KK0,  9, 14, x)
-    d, a = R(d, e, a, b, c, F4, KK0,  9,  7, x)
-    c, e = R(c, d, e, a, b, F4, KK0, 11,  0, x)
-    b, d = R(b, c, d, e, a, F4, KK0, 13,  9, x)
-    a, c = R(a, b, c, d, e, F4, KK0, 15,  2, x)
-    e, b = R(e, a, b, c, d, F4, KK0, 15, 11, x)
-    d, a = R(d, e, a, b, c, F4, KK0,  5,  4, x)
-    c, e = R(c, d, e, a, b, F4, KK0,  7, 13, x)
-    b, d = R(b, c, d, e, a, F4, KK0,  7,  6, x)
-    a, c = R(a, b, c, d, e, F4, KK0,  8, 15, x)
-    e, b = R(e, a, b, c, d, F4, KK0, 11,  8, x)
-    d, a = R(d, e, a, b, c, F4, KK0, 14,  1, x)
-    c, e = R(c, d, e, a, b, F4, KK0, 14, 10, x)
-    b, d = R(b, c, d, e, a, F4, KK0, 12,  3, x)
-    a, c = R(a, b, c, d, e, F4, KK0,  6, 12, x) #/* #15 */
-    #/* Parallel round 2 */
-    e, b = R(e, a, b, c, d, F3, KK1,  9,  6, x)
-    d, a = R(d, e, a, b, c, F3, KK1, 13, 11, x)
-    c, e = R(c, d, e, a, b, F3, KK1, 15,  3, x)
-    b, d = R(b, c, d, e, a, F3, KK1,  7,  7, x)
-    a, c = R(a, b, c, d, e, F3, KK1, 12,  0, x)
-    e, b = R(e, a, b, c, d, F3, KK1,  8, 13, x)
-    d, a = R(d, e, a, b, c, F3, KK1,  9,  5, x)
-    c, e = R(c, d, e, a, b, F3, KK1, 11, 10, x)
-    b, d = R(b, c, d, e, a, F3, KK1,  7, 14, x)
-    a, c = R(a, b, c, d, e, F3, KK1,  7, 15, x)
-    e, b = R(e, a, b, c, d, F3, KK1, 12,  8, x)
-    d, a = R(d, e, a, b, c, F3, KK1,  7, 12, x)
-    c, e = R(c, d, e, a, b, F3, KK1,  6,  4, x)
-    b, d = R(b, c, d, e, a, F3, KK1, 15,  9, x)
-    a, c = R(a, b, c, d, e, F3, KK1, 13,  1, x)
-    e, b = R(e, a, b, c, d, F3, KK1, 11,  2, x) #/* #31 */
-    #/* Parallel round 3 */
-    d, a = R(d, e, a, b, c, F2, KK2,  9, 15, x)
-    c, e = R(c, d, e, a, b, F2, KK2,  7,  5, x)
-    b, d = R(b, c, d, e, a, F2, KK2, 15,  1, x)
-    a, c = R(a, b, c, d, e, F2, KK2, 11,  3, x)
-    e, b = R(e, a, b, c, d, F2, KK2,  8,  7, x)
-    d, a = R(d, e, a, b, c, F2, KK2,  6, 14, x)
-    c, e = R(c, d, e, a, b, F2, KK2,  6,  6, x)
-    b, d = R(b, c, d, e, a, F2, KK2, 14,  9, x)
-    a, c = R(a, b, c, d, e, F2, KK2, 12, 11, x)
-    e, b = R(e, a, b, c, d, F2, KK2, 13,  8, x)
-    d, a = R(d, e, a, b, c, F2, KK2,  5, 12, x)
-    c, e = R(c, d, e, a, b, F2, KK2, 14,  2, x)
-    b, d = R(b, c, d, e, a, F2, KK2, 13, 10, x)
-    a, c = R(a, b, c, d, e, F2, KK2, 13,  0, x)
-    e, b = R(e, a, b, c, d, F2, KK2,  7,  4, x)
-    d, a = R(d, e, a, b, c, F2, KK2,  5, 13, x) #/* #47 */
-    #/* Parallel round 4 */
-    c, e = R(c, d, e, a, b, F1, KK3, 15,  8, x)
-    b, d = R(b, c, d, e, a, F1, KK3,  5,  6, x)
-    a, c = R(a, b, c, d, e, F1, KK3,  8,  4, x)
-    e, b = R(e, a, b, c, d, F1, KK3, 11,  1, x)
-    d, a = R(d, e, a, b, c, F1, KK3, 14,  3, x)
-    c, e = R(c, d, e, a, b, F1, KK3, 14, 11, x)
-    b, d = R(b, c, d, e, a, F1, KK3,  6, 15, x)
-    a, c = R(a, b, c, d, e, F1, KK3, 14,  0, x)
-    e, b = R(e, a, b, c, d, F1, KK3,  6,  5, x)
-    d, a = R(d, e, a, b, c, F1, KK3,  9, 12, x)
-    c, e = R(c, d, e, a, b, F1, KK3, 12,  2, x)
-    b, d = R(b, c, d, e, a, F1, KK3,  9, 13, x)
-    a, c = R(a, b, c, d, e, F1, KK3, 12,  9, x)
-    e, b = R(e, a, b, c, d, F1, KK3,  5,  7, x)
-    d, a = R(d, e, a, b, c, F1, KK3, 15, 10, x)
-    c, e = R(c, d, e, a, b, F1, KK3,  8, 14, x) #/* #63 */
-    #/* Parallel round 5 */
-    b, d = R(b, c, d, e, a, F0, KK4,  8, 12, x)
-    a, c = R(a, b, c, d, e, F0, KK4,  5, 15, x)
-    e, b = R(e, a, b, c, d, F0, KK4, 12, 10, x)
-    d, a = R(d, e, a, b, c, F0, KK4,  9,  4, x)
-    c, e = R(c, d, e, a, b, F0, KK4, 12,  1, x)
-    b, d = R(b, c, d, e, a, F0, KK4,  5,  5, x)
-    a, c = R(a, b, c, d, e, F0, KK4, 14,  8, x)
-    e, b = R(e, a, b, c, d, F0, KK4,  6,  7, x)
-    d, a = R(d, e, a, b, c, F0, KK4,  8,  6, x)
-    c, e = R(c, d, e, a, b, F0, KK4, 13,  2, x)
-    b, d = R(b, c, d, e, a, F0, KK4,  6, 13, x)
-    a, c = R(a, b, c, d, e, F0, KK4,  5, 14, x)
-    e, b = R(e, a, b, c, d, F0, KK4, 15,  0, x)
-    d, a = R(d, e, a, b, c, F0, KK4, 13,  3, x)
-    c, e = R(c, d, e, a, b, F0, KK4, 11,  9, x)
-    b, d = R(b, c, d, e, a, F0, KK4, 11, 11, x) #/* #79 */
-
-    t = (state[1] + cc + d) % 0x100000000;
-    state[1] = (state[2] + dd + e) % 0x100000000;
-    state[2] = (state[3] + ee + a) % 0x100000000;
-    state[3] = (state[4] + aa + b) % 0x100000000;
-    state[4] = (state[0] + bb + c) % 0x100000000;
-    state[0] = t % 0x100000000;
-
-    pass
+        assert False
 
 
-def RMD160Update(ctx, inp, inplen):
-    if type(inp) == str:
-        inp = [ord(i)&0xff for i in inp]
-
-    have = (ctx.count // 8) % 64
-    need = 64 - have
-    ctx.count += 8 * inplen
-    off = 0
-    if inplen >= need:
-        if have:
-            for i in range(need):
-                ctx.buffer[have+i] = inp[i]
-            RMD160Transform(ctx.state, ctx.buffer)
-            off = need
-            have = 0
-        while off + 64 <= inplen:
-            RMD160Transform(ctx.state, inp[off:]) #<---
-            off += 64
-    if off < inplen:
-        # memcpy(ctx->buffer + have, input+off, len-off);
-        for i in range(inplen - off):
-            ctx.buffer[have+i] = inp[off+i]
-
-def RMD160Final(ctx):
-    size = struct.pack("<Q", ctx.count)
-    padlen = 64 - ((ctx.count // 8) % 64)
-    if padlen < 1+8:
-        padlen += 64
-    RMD160Update(ctx, PADDING, padlen-8)
-    RMD160Update(ctx, size, 8)
-    return struct.pack("<5L", *ctx.state)
+def rol(x, i):
+    """Rotate the bottom 32 bits of x left by i bits."""
+    return ((x << i) | ((x & 0xffffffff) >> (32 - i))) & 0xffffffff
 
 
-assert '37f332f68db77bd9d7edd4969571ad671cf9dd3b' == \
-       new(b'The quick brown fox jumps over the lazy dog').hexdigest()
-assert '132072df690933835eb8b6ad0b77e7b6f14acad7' == \
-       new(b'The quick brown fox jumps over the lazy cog').hexdigest()
-assert '9c1185a5c5e9fc54612808977ee8f548b2258d31' == \
-       new('').hexdigest()
+def compress(h0, h1, h2, h3, h4, block):
+    """Compress state (h0, h1, h2, h3, h4) with block."""
+    # Left path variables.
+    al, bl, cl, dl, el = h0, h1, h2, h3, h4
+    # Right path variables.
+    ar, br, cr, dr, er = h0, h1, h2, h3, h4
+    # Message variables.
+    x = [int.from_bytes(block[4*i:4*(i+1)], 'little') for i in range(16)]
+
+    # Iterate over the 80 rounds of the compression.
+    for j in range(80):
+        rnd = j >> 4
+        # Perform left side of the transformation.
+        al = rol(al + fi(bl, cl, dl, rnd) + x[ML[j]] + KL[rnd], RL[j]) + el
+        al, bl, cl, dl, el = el, al, bl, rol(cl, 10), dl
+        # Perform right side of the transformation.
+        ar = rol(ar + fi(br, cr, dr, 4 - rnd) + x[MR[j]] + KR[rnd], RR[j]) + er
+        ar, br, cr, dr, er = er, ar, br, rol(cr, 10), dr
+
+    # Compose old state, left transform, and right transform into new state.
+    return h1 + cl + dr, h2 + dl + er, h3 + el + ar, h4 + al + br, h0 + bl + cr
+
+
+def ripemd160(data):
+    """Compute the RIPEMD-160 hash of data."""
+    # Initialize state.
+    state = (0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0)
+    # Process full 64-byte blocks in the input.
+    for b in range(len(data) >> 6):
+        state = compress(*state, data[64*b:64*(b+1)])
+    # Construct final blocks (with padding and size).
+    pad = b"\x80" + b"\x00" * ((119 - len(data)) & 63)
+    fin = data[len(data) & ~63:] + pad + (8 * len(data)).to_bytes(8, 'little')
+    # Process final blocks.
+    for b in range(len(fin) >> 6):
+        state = compress(*state, fin[64*b:64*(b+1)])
+    # Produce output.
+    return b"".join((h & 0xffffffff).to_bytes(4, 'little') for h in state)
+
+
+class TestFrameworkKey(unittest.TestCase):
+    def test_ripemd160(self):
+        """RIPEMD-160 test vectors."""
+        # See https://homes.esat.kuleuven.be/~bosselae/ripemd160.html
+        for msg, hexout in [
+            (b"", "9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+            (b"a", "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
+            (b"abc", "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
+            (b"message digest", "5d0689ef49d2fae572b881b123a85ffa21595f36"),
+            (b"abcdefghijklmnopqrstuvwxyz",
+                "f71c27109c692c1b56bbdceb5b9d2865b3708dbc"),
+            (b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+                "12a053384a9c0c88e405a06c27dcf49ada62eb2b"),
+            (b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+                "b0e20b6e3116640286ed3a87a5713079b21f5189"),
+            (b"1234567890" * 8, "9b752e45573d4b39f4dbd3323cab82bf63326bfb"),
+            (b"a" * 1000000, "52783243c1697bdbe16d37f97f68f08325dc1528")
+        ]:
+            self.assertEqual(ripemd160(msg).hex(), hexout)
