@@ -10,7 +10,9 @@ Repository contents:
 2. Python library for speaking the protocol
 3. Supporting documentation
 
-Examples/Libraries in other languages will be added when available.
+Examples/Libraries in other languages:
+- C++ https://github.com/nunchuk-io/tap-protocol
+- React Native https://github.com/bithyve/cktap-protocol-react-native
 
 ## Documentation Links
 
