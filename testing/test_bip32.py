@@ -292,3 +292,14 @@ def test_sec():
         point = decode_pubkey(pubkey, "bin_compressed")
         assert encode_pubkey(point, "bin") == bytes.fromhex(uncompressed)
         assert encode_pubkey(point, "bin_compressed") == bytes.fromhex(compressed) == pubkey
+
+
+def test_sk_33_bytes():
+    il = [2147483696, 2147483649, 2147483648, 2147483650]
+    tprv = "tprv8ZgxMBicQKsPeXJHL3vPPgTAEqQ5P2FD9qDeCQT4Cp1EMY5QkwMPWFxHdxHrxZhhcVRJ2m7BNWTz9Xre68y7mX5vCdMJ5qXMUfnrZ2si2X4"
+    m = PrvKeyNode.parse(tprv, testnet=True)
+    sk = m.get_extended_pubkey_from_path(il)
+    expected_pub = "tpubDF2rnouQaaYrXF4noGTv6rQYmx87cQ4GrUdhpvXkhtChwQPbdGTi8GA88NUaSrwZBwNsTkC9bFkkC8vDyGBVVAQTZ2AS6gs68RQXtXcCvkP"
+    expected_prv = "tprv8iLpePsASCsBdn2zucoKhSkSCvcBT4sNHB2vYQVTHcQK6v8pzse7wmYFxFzisGQ5affBk4Whg1qoQrX5jTkzQy3ENjE89KkiBWkbd9RE9Ez"
+    assert sk.extended_public_key() == expected_pub
+    assert sk.extended_private_key() == expected_prv

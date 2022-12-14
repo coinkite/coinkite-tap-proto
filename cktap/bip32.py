@@ -450,7 +450,12 @@ class PrvKeyNode(PubKeyNode):
         """
         if index >= HARDENED:
             # hardened
-            data = b"\x00" + self.key + int_to_big_endian(index, 4)
+            if len(self.key) < 33:
+                to_pad = 33 - len(self.key)
+                key = (b"\x00" * to_pad) + self.key
+            else:
+                key = self.key
+            data = key + int_to_big_endian(index, 4)
         else:
             data = privkey_to_pubkey(self.key) + int_to_big_endian(index, 4)
         I = hmac.new(key=self.chain_code, msg=data, digestmod=hashlib.sha512).digest()
