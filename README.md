@@ -78,12 +78,24 @@ reflected in the installed version.
 
 
 ## Ubuntu/Debian Notes
+
 Installing `pyscard` require SWIG and libpcsclite:
+
 ```shell
 # run below before installing dependencies with pip
 # tested on Ubuntu 20.04 (only)
 sudo apt-get install swig
 sudo apt-get install libpcsclite-dev
+```
+
+## Fedora/Red Hat Notes
+
+Installing `pyscard` requires SWIG and the pcsc-lite library:
+
+```shell
+# run below before installing dependencies with pip
+# tested on Fedora 37 (only)
+sudo dnf install swig pcsc-lite-devel
 ```
 
 ## Windows Notes
