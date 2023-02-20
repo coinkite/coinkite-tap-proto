@@ -309,9 +309,8 @@ def sign_message(cvc, message, subpath, verbose=True, just_sig=False, slot=0):
     else:
         addr = card.get_address(slot=be_slot)
         if verbose:
-            click.echo('-----BEGIN SIGNED MESSAGE-----\n{msg}\n-----BEGIN '
-                      'SIGNATURE-----\n{addr}\n{sig}\n-----END SIGNED MESSAGE-----'.format(
-                            msg=message.decode('ascii'), addr=addr, sig=sig))
+            click.echo(RFC_SIGNATURE_TEMPLATE.format(msg=message.decode('ascii'),
+                                                     addr=addr, sig=sig))
         else:
             click.echo('%s\n%s\n%s' % (message.decode('ascii'), addr, sig))
     
