@@ -50,4 +50,12 @@ SW_OKAY = 0x9000
 # path lengths (depth) is limited 8 components in derive command - check docs/limitations.md
 DERIVE_MAX_BIP32_PATH_DEPTH = 8
 
+RFC_SIGNATURE_TEMPLATE = '''\
+-----BEGIN BITCOIN SIGNED MESSAGE-----
+{msg}
+-----BEGIN BITCOIN SIGNATURE-----
+{addr}
+{sig}
+-----END BITCOIN SIGNATURE-----
+'''
 # EOF
