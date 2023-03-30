@@ -8,7 +8,6 @@ A python emulator of a single card.
 - _Completely_ insecure
 - Uses wallycore for Bitcoin math
 - Code is stand-alone, independent of `cktap`
-- No attempt to make it portable; might be MacOS-only
 
 ## Usage
 
@@ -19,6 +18,7 @@ Options:
   -q, --quiet             Less debugging
   -t, --testnet           Operate on testnet3 rather than mainnet
   -r, --rng-seed integer  Seed value for (not) RNG
+  -p, --port              Socket port number
   --help                  Show this message and exit.
 
 Commands:
@@ -49,5 +49,5 @@ Command usage:
 % ./ecard.py emulate -t
 ```
 
-When emulating a card, commands can be sent to the Unix domain pipe
-at `/tmp/ecard-pipe` as CBOR objects. Responses are CBOR to be decoded.
+When emulating a card, commands can be sent to the socket
+port 3000 as CBOR objects. Responses are CBOR to be decoded.

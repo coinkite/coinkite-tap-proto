@@ -6,7 +6,7 @@
 # Implement the desktop to card connection for our cards, both TAPSIGNER and SATSCARD.
 #
 #
-import sys, os, cbor2
+import cbor2
 from binascii import b2a_hex, a2b_hex
 from hashlib import sha256
 from .utils import *
@@ -18,6 +18,10 @@ from .proto import CKTapCard
 
 # Change this to see traffic details
 VERBOSE = False
+
+# Emulator port
+EMU_PORT = 3000
+
 
 def find_cards():
     #
@@ -153,22 +157,21 @@ class CKTapNFCTransport(CKTapTransportABC):
 
 class CKTapUnixTransport(CKTapTransportABC):
     #
-    # Emulation running over a Unix socket.
+    # Emulation running over a socket.
     #
     is_emulator = True
     name = 'EMU'
 
     @classmethod
     def find_simulator(cls):
-        import os
-        FN = '/tmp/ecard-pipe'
-        if os.path.exists(FN):
-            return cls(FN)
-        return None
+        try:
+            return cls(("127.0.0.1", EMU_PORT))
+        except:
+            pass
 
     def __init__(self, pipename):
         import socket
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(pipename)
 
     def get_ATR(self):

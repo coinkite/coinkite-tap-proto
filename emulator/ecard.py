@@ -30,6 +30,9 @@ sha256s = lambda msg: sha256(msg).digest()
 # Print more?
 DEBUG = True
 
+# default simulator port
+DEFAULT_PORT = 3000
+
 # Operate on testnet? Affects address displays, but none of the math.
 TESTNET = True
 
@@ -736,24 +739,18 @@ class CardState:
         return self.url_prefix + msg + B2A(sig)
 
 
-    def emulate(self, pipename):
+    def emulate(self, port_num):
         # Using a unix socket as connector, run as an emulator for the card.
-        import atexit, os, sys, socket, errno
+        import atexit, os, socket
 
-        # manage unix socket cleanup for client
-        def sock_cleanup():
-            if os.path.exists(pipename):
-                os.unlink(pipename)
-        sock_cleanup()
-        atexit.register(sock_cleanup)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        pipe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
-        pipe.bind(pipename)
-        pipe.listen()
+        sock.bind(("127.0.0.1", port_num))
+        sock.listen()
         while 1:
-            print(f"Waiting for new connection on: {pipename}")
-            con, addr = pipe.accept()
+            print(f"Waiting for new connection on: {port_num}")
+            print(" Stop with CTRL+C or CTRL+Break in Windows.")
+            con, addr = sock.accept()
 
             print(f"Connected.")
 
@@ -954,8 +951,8 @@ def main(testnet, rng_seed, debug=False, quiet=False):
 @click.option('--tapsigner', '--ts', '-t', is_flag=True, help='Be a TAPSIGNER')
 @click.option('--satschip', '--chip', '-c', is_flag=True, help='Be a SATSCHIP')
 @click.option('--version-9', '-9', is_flag=True, help='Emulate older version: 0.9.0')
-@click.option('--pipe', '-p', type=str, default='/tmp/ecard-pipe', help='Unix pipe for comms', metavar="PATH")
-def emulate_card(pipe, factory=False, tapsigner=False, no_init=False, satschip=False, satscard=True, version_9=False):
+@click.option('--port', '-p', type=int, default=DEFAULT_PORT, help='Socket port for comms')
+def emulate_card(port, factory=False, tapsigner=False, no_init=False, satschip=False, satscard=True, version_9=False):
     '''
         Emulate a card which is fresh from factory.
     '''
@@ -983,7 +980,7 @@ def emulate_card(pipe, factory=False, tapsigner=False, no_init=False, satschip=F
 
     print(card)
 
-    card.emulate(pipe)
+    card.emulate(port)
 
 @main.command('satscard')
 def sc_basic_test():
