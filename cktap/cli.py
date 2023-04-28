@@ -899,9 +899,13 @@ def do_unlock():
 @click.argument('cvc', default='123456', type=str, metavar="(PIN code)", required=False)
 @click.option('--localhost', '-l', is_flag=True, help="Upload to local dev server")
 @click.option('--skip-prompts', '-q', is_flag=True, help="Skip prompts for new values")
+@click.option('--init-card', '--init', is_flag=True, help="Setup private key if needed")
+@click.option('--offline', is_flag=True, help="Skip check for previous data online")
 @click.option('--image', '-i', type=click.Path(exists=True, dir_okay=False),
                         help="Image to upload (PNG or JPEG)", required=False)
-def upload_artwork(cvc, image, localhost, skip_prompts):
+@click.option('--meta', '-m', multiple=True, help="Provide meta values by name (can be repeated)",
+                                metavar="key='Value'")
+def upload_artwork(cvc, image, localhost, skip_prompts, init_card, meta, offline):
     "[SATSCHIP] Upload an image and artwork's metadata to public website"
     from urllib.parse import urlparse
     import cbor2, requests, datetime
@@ -929,10 +933,11 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         if path is not None:
             break
 
-        if not click.confirm(f'No private key picked yet. Pick now?', default=True):
-            click.echo("Private required to continue.", err=True)
-            sys.exit(1)
-            continue
+        if not init_card:
+            if not click.confirm(f'No private key picked yet. Pick now?', default=True):
+                click.echo("Private required to continue.", err=True)
+                sys.exit(1)
+                continue
 
         # do basic setup now
         args = dict(chain_code=sha256s(sha256s(os.urandom(128))), slot=0)
@@ -965,20 +970,21 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
     data['is_public'] = True
     data['created_at'] = datetime.datetime.now()
 
-    # see if we can restore a previous upload, or run
-    try:
-        print("Checking for previousiously uploaded values... ", end='')
-        old = ses.get(url + '.cbor').body()
-        seq = cbor2.loads(old)
+    if not offline:
+        # see if we can restore a previous upload, or run
+        try:
+            print("Checking for previousiously uploaded values... ", end='')
+            old = ses.get(url + '.cbor').body()
+            seq = cbor2.loads(old)
 
-        if seq[0] != META_VERSION or len(seq[2]) == 65:
-            raise ValueError('version?')
+            if seq[0] != META_VERSION or len(seq[2]) == 65:
+                raise ValueError('version?')
 
-        # assume server verified signature
-        data.update(cbor2.loads(seq[1]))
-        print(" Done")
-    except:
-        print(" (failed or got none)")
+            # assume server verified signature
+            data.update(cbor2.loads(seq[1]))
+            print(" Done")
+        except:
+            print(" (failed or got none)")
 
     if os.path.exists(fname):
         print(f"Loading from previous attempt... {fname}")
@@ -989,12 +995,29 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
                 data.update(cbor2.loads(seq[1]))
         except:
             raise
-            print("(failed) ignoring previous run's data")
+            #print("(failed) ignoring previous run's data")
 
     for k in list(data.keys()):
         if k not in ALL_FIELDS:
             print(f"Removing obsolete field: {k}")
             del data[k]
+
+    if meta:
+        mlabels = dict(META_FIELDS)
+        for ln in meta:
+            if '=' not in ln:
+                fail(f'Need = in meta arg: {ln}')
+
+            k,v = ln.split('=')
+            k = k.strip()
+            if k not in ALL_FIELDS:
+                fail(f'Unknown meta value key: {k}')
+
+            if k.startswith('is_'):
+                v = True if v.lower() in {'1', 'true', 'yes'} else False
+
+            data[k] = v
+            print(f'{mlabels[k]}: {v}')
 
     while not skip_prompts:
         print("\nEnter updated metadata values. Any may be left blank and all are optional.\n\n")
@@ -1011,14 +1034,6 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
                                     type=click.Path(exists=False, dir_okay=False),
                                     default='')
                     if not image: continue
-
-                # will let server validate the image contents because I don't 
-                # want to add Pillow to dependances here
-                data[fn] = open(image, 'rb').read()
-
-                if len(data[fn]) >= MAX_IMG_SIZE:
-                    print(f"Image file must be less than {int(MAX_IMG_SIZE/1E6)} megabytes.")
-                    sys.exit(1)
 
             elif fn.startswith('is_'):
                 data[fn] = click.confirm(label, default=data[fn])
@@ -1056,6 +1071,17 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
         if click.confirm("All correct?", default=True): break
         if click.confirm("Quit now?"): sys.exit(0)
 
+
+    if image and not data['image']:
+        # will let server validate the image contents because I don't 
+        # want to add Pillow to dependances here
+        raw = open(image, 'rb').read()
+
+        if len(raw) >= MAX_IMG_SIZE:
+            print(f"Image file must be less than {int(MAX_IMG_SIZE/1E6)} megabytes.")
+            sys.exit(1)
+        data['image'] = raw
+
     data['pubkey'] = my_pubkey
     data['card_ident'] = card.card_ident        # redundent, but useful
     data['card_pubkey'] = card.card_pubkey
@@ -1087,9 +1113,8 @@ def upload_artwork(cvc, image, localhost, skip_prompts):
 
     print(f"\nData captured into local file: {fname}")
 
-    full_url = url+'.cbor/'+host.fragment
-
-    if click.confirm("Upload to server?", default=True):
+    if not offline and click.confirm("Upload to server?", default=True):
+        full_url = url+'.cbor/'+host.fragment
         resp = ses.put(full_url, data=complete, headers={'content-type': 'application/cbor'})
         print("Server says:\n")
         print(resp.text)
