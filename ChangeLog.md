@@ -1,3 +1,8 @@
+# 1.2.2
+- enhancement: upload for SATSCHIP improved with meta data on CLI.
+- enhancement: ripemd160 imported for better compatibility
+- enhancement: signature ascii armour improved
+
 # 1.2.1
 - enhancement: take advantage of v1.0.3 on SATSCARD which shares pubkey on unsealed slots
 - enhancement: add optional slot number to `cktap address` command 
