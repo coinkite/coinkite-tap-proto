@@ -2,7 +2,8 @@
 pytest
 cbor2==5.4.1
 hexdump==3.3
-wallycore==0.8.5
+wallycore==0.9.2  # for python >= 3.8
+# wallycore==0.9.0  # for python <= 3.7
 bech32==1.2.0
 pyqrcode==1.2.1
 base58==2.1.1

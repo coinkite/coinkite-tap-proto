@@ -2,7 +2,12 @@
 # (c) Copyright 2021 by Coinkite Inc. This file is covered by license found in COPYING-CC.
 #
 #
+import pytest
 from cktap.sweep import NetConnection, UTXO, UTXOList
+
+
+pytestmark = [pytest.mark.net]
+
 
 def test_useragent():
     a = NetConnection('http://httpbin.org')
