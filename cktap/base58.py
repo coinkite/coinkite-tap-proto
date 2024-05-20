@@ -89,7 +89,7 @@ def decode_base58_checksum(s: str) -> bytes:
     checksum = num_bytes[-4:]
     if hash256(num_bytes[:-4])[:4] != checksum:
         raise ValueError(
-            'bad address: {} {}'.format(
+            'bad checksum: {} {}'.format(
                 checksum,
                 hash256(num_bytes[:-4])[:4]
             )
