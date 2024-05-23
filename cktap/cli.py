@@ -1063,7 +1063,10 @@ def upload_artwork(cvc, image, localhost, skip_prompts, init_card, meta, offline
             print(f"  {label}: ", end='')
 
             if fn == 'image':
-                print('(%d bytes)' % len(data[fn]))
+                if image:
+                    print('(from %s)' % image)
+                else:
+                    print('(%d bytes - unchanged)' % len(data[fn]))
             else:
                 print(data[fn])
 
@@ -1071,8 +1074,7 @@ def upload_artwork(cvc, image, localhost, skip_prompts, init_card, meta, offline
         if click.confirm("All correct?", default=True): break
         if click.confirm("Quit now?"): sys.exit(0)
 
-
-    if image and not data['image']:
+    if image:
         # will let server validate the image contents because I don't 
         # want to add Pillow to dependances here
         raw = open(image, 'rb').read()
