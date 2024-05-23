@@ -2,8 +2,6 @@
 
 This Python library enables easy communication with **TAPSIGNER<sup>&trade;</sup>**,  **SATSCARD<sup>&trade;</sup>** and **SATSCHIP<sup>&trade;</sup>**.
 
-**-==[Request card development samples [here](https://coinkite.cards/dev)]==-**
-
 Repository contents:
 
 1. The protocol specification
@@ -13,6 +11,10 @@ Repository contents:
 Examples/Libraries in other languages:
 - C++ https://github.com/nunchuk-io/tap-protocol
 - React Native https://github.com/bithyve/cktap-protocol-react-native
+
+Recommended NFC desktop reader
+- HID Omnikey "CL5022 CL" works well in Windows, Linux and MacOS.
+- https://store.coinkite.com/store/nfc-read-b
 
 ## Documentation Links
 
