@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
       - run: echo "triggered by a ${{ github.event_name }} event."
       - run: echo "running on a ${{ runner.os }}"
@@ -46,11 +46,10 @@ jobs:
           python3 -m venv venv
           venv/bin/pip install -U pip wheel
           venv/bin/pip install -r requirements.txt
-          venv/bin/pip install dataclasses  # python36
           venv/bin/python ecard.py --testnet emulate -t &
       - name: Run lib unittests and tapsigner unittests
         run: |
-          pytest -m "not satscard and not crypto" --cvc 123456 -vvv
+          pytest -m "not satscard and not crypto and not net" --cvc 123456 -vvv
       - name: Kill tapsigner emulator process
         run: |
           pgrep -f ecard.py | xargs kill -9
@@ -75,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.6", "3.7", "3.8", "3.9", "3.10" ]
+        python-version: [ "3.8", "3.9", "3.10", "3.11" ]
     steps:
       - run: echo "triggered by a ${{ github.event_name }} event."
       - run: echo "running on a ${{ runner.os }}"
@@ -99,7 +98,7 @@ jobs:
         shell: powershell
       - name: Run non-device test
         run: |
-          pytest -m "not device and not crypto" -k "not test_useragent" -vvv
+          pytest -m "not device and not crypto and not net" -vvv
       - name: Run crypto comparison tests
         run: |
           pip install wallycore coincurve
