@@ -11,6 +11,9 @@ Repository contents:
 Examples/Libraries in other languages:
 - C++ https://github.com/nunchuk-io/tap-protocol
 - React Native https://github.com/bithyve/cktap-protocol-react-native
+- ffi https://github.com/thunderbiscuit/cktap-ffi
+- Rust https://github.com/notmandatory/rust-cktap
+
 
 Recommended NFC desktop reader
 - HID Omnikey "CL5022 CL" works well in Windows, Linux and MacOS.
