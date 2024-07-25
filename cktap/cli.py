@@ -10,14 +10,14 @@
 #
 #
 import click, sys, os, pdb, time, json, textwrap
-from binascii import b2a_hex
+from binascii import a2b_hex
 from functools import wraps
 from getpass import getpass
 from copy import deepcopy
 from base64 import b64encode
 
 from cktap.utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
-from cktap.utils import make_recoverable_sig, path2str, pick_nonce
+from cktap.utils import path2str, pick_nonce
 from cktap.compat import sha256s
 from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
@@ -626,7 +626,7 @@ def setup_slot(cvc=None, chain_code=None, new_chain_code=True):
         args['chain_code'] = sha256s(sha256s(os.urandom(128)))
     elif chain_code:
         try:
-            chain_code = b2a_hex(chain_code)
+            chain_code = a2b_hex(chain_code)
             assert len(chain_code) == 32
         except:
             fail("Need 64 hex digits (32 bytes) for chain code.")
