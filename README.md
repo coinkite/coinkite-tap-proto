@@ -184,6 +184,21 @@ To see more detail, include the CVC on the command line.
 `cktap --version`
 - Get the version of cktap library
 
+`cktap list`
+- List all cards detected on any reader attached
+
+`cktap certs`
+-  Check this card was made by Coinkite
+
+## For both SATSCARD and TAPSIGNER
+
+`cktap status`
+- Shows status info.
+
+`cktap setup`
+- Tells card to pick private key. Chain code can be provided by user. User can [verify](docs/best-practices.md) that provided chain code was used.
+- called only once on TAPSIGNER, and for each slot setup on SATSCARD
+
 ### For SATSCARD
 
 `cktap open`
@@ -202,12 +217,6 @@ To see more detail, include the CVC on the command line.
 
 
 ### For TAPSIGNER
-
-`cktap status`
-- Shows status info.
-
-`cktap setup`
-- Tells card to pick private key (call once).
 
 `cktap xpub`
 - Shows the XPUB in effect.

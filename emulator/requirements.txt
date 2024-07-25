@@ -2,7 +2,7 @@
 pytest
 cbor2==5.4.1
 hexdump==3.3
-wallycore==0.8.5
+wallycore==0.8.5  # may need something newer like 1.3.0 on ubuntu24+
 bech32==1.2.0
 pyqrcode==1.2.1
 base58==2.1.1
