@@ -91,6 +91,10 @@ Installing `pyscard` require SWIG and libpcsclite:
 # tested on Ubuntu 20.04 (only)
 sudo apt-get install swig
 sudo apt-get install libpcsclite-dev
+
+# some newer debian-based distros (ubuntu24) require:
+sudo apt-get install pcscd
+sudo systemctl enable pcscd
 ```
 
 ## Fedora/Red Hat Notes
