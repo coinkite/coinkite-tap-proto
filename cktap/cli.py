@@ -16,8 +16,8 @@ from getpass import getpass
 from copy import deepcopy
 from base64 import b64encode
 
-from cktap.utils import xor_bytes, render_address, render_wif, render_descriptor, B2A, ser_compact_size
-from cktap.utils import path2str, pick_nonce
+from cktap.utils import xor_bytes, render_address, render_wif, render_descriptor, B2A
+from cktap.utils import path2str, pick_nonce, ser_compact_size, is_hardened, HARDENED
 from cktap.compat import sha256s
 from cktap.constants import *
 from cktap.exceptions import CardRuntimeError
@@ -810,11 +810,14 @@ def json_dump(cvc):
             )
 
     if len(path_comps) == 3:
-        rv['account'] = int(path_comps[-1][:-1])
+        acct_num = path_comps[-1]
+        if is_hardened(acct_num):
+            acct_num = acct_num - HARDENED
+        rv['account'] = acct_num
 
     if len(path_comps) >= 2:
         # assuming BIP-44 compliance here
-        bip_num = int(path_comps[0][:-1])
+        bip_num = path_comps[0] - HARDENED
         if bip_num in { 44, 49, 84 }:
             rv[f'bip_{bip_num}'] = dict(deriv=path2str(path_comps), xpub=derived_xpub,
                                         xfp=xfp, name=f'BIP-{bip_num}')
