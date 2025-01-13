@@ -170,7 +170,7 @@ class CKTapCard:
             if incl_pubkey:
                 if 'pubkey' in rr:
                     # after v1.0.3 pubkey is provided in un-auth reply
-                    return rr['pubkey'], rv['addr']
+                    return rr['pubkey'], rr['addr']
 
                 raise RuntimeError('can only get pubkey for current slot')
 
