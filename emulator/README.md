@@ -6,9 +6,8 @@ A python emulator of a single card.
 - **TAPSIGNER<sup>&trade;</sup>** AES key: 41414141414141414141414141414141
 - Precise error codes will differ from real product
 - _Completely_ insecure
-- Uses wallycore for Bitcoin math
+- Uses `wallycore` dependency for Bitcoin math (required dependencies are `automake` & `swig` you may also need `gsed` on MacOS)
 - Code is stand-alone, independent of `cktap`
-- No attempt to make it portable; might be MacOS-only
 
 ## Usage
 
