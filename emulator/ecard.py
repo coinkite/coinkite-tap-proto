@@ -363,9 +363,12 @@ class CardState:
 
             msg = b'OPENDIME' + self.nonce + nonce + self.cur_slot.deriv_chain_code
             sig = ec_sig_from_digest(self.cur_slot.privkey, sha256s(msg), EC_FLAG_ECDSA)
+            master_pubkey = ec_public_key_from_private_key(self.cur_slot.master_pk)
+
 
             self._new_nonce()
             return dict(sig=sig, chain_code=self.cur_slot.deriv_chain_code,
+                            master_pubkey=master_pubkey,
                             pubkey=self.cur_slot.pubkey, 
                             card_nonce=self.nonce)
         else:
