@@ -22,7 +22,7 @@ Therefore, a dynamic NDEF response is desired.
 - String: URL-encoded already, needs no percent-escaping
 - Keys: Single-letter, values are mostly fixed-width and short
 - **SATSCARD:** Uses the current active slot. If the slot is unused (no key, yet) the card uses the previous slot (slot must already be unsealed).
-- **TAPSIGNER<sup>&trade;</sup>:** Limited information and identity are provided.
+- **TAPSIGNER<sup>&reg;</sup>:** Limited information and identity are provided.
 
 Example: `https://getsatscard.com/start#` + `DYNAMICPART` </br>
 The dynamic part is: `u=S&o=3&r=bcajrh2jdk&n=01020304050607&s=fefb...00`

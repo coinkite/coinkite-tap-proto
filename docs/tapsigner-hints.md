@@ -1,4 +1,4 @@
-# Developer's Guide and Usage Hints for **TAPSIGNER<sup>&trade;</sup>**
+# Developer's Guide and Usage Hints for **TAPSIGNER<sup>&reg;</sup>**
 
 
 ## Setup Sequence

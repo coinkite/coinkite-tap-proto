@@ -1,6 +1,6 @@
 # Coinkite Tap Protocol and Helper Program
 
-This Python library enables easy communication with **TAPSIGNER<sup>&trade;</sup>**,  **SATSCARD<sup>&trade;</sup>** and **SATSCHIP<sup>&trade;</sup>**.
+This Python library enables easy communication with **TAPSIGNER<sup>&reg;</sup>**,  **SATSCARD<sup>&trade;</sup>** and **SATSCHIP<sup>&trade;</sup>**.
 
 Repository contents:
 

@@ -1,6 +1,6 @@
 # Coinkite Tap Cards Protocol
 
-This document describes the protocol for both the **SATSCARD<sup>&trade;</sup>** and **TAPSIGNER<sup>&trade;</sup>** products. Despite having different usage and security models, they share much of the same code.
+This document describes the protocol for both the **SATSCARD<sup>&trade;</sup>** and **TAPSIGNER<sup>&reg;</sup>** products. Despite having different usage and security models, they share much of the same code.
 
 
 ## Table of Contents

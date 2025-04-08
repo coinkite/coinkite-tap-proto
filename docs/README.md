@@ -3,7 +3,7 @@
 ## TAPSIGNER and SATSCARD
 
 [Coinkite Tap Cards Protocol](protocol.md)
-- Discusses the specialized commands to be sent to the cards (**SATSCARD<sup>&trade;</sup>** and **TAPSIGNER<sup>&trade;</sup>**).
+- Discusses the specialized commands to be sent to the cards (**SATSCARD<sup>&trade;</sup>** and **TAPSIGNER<sup>&reg;</sup>**).
 
 [Best Practises](best-practices.md)
 - Our recommendations for UX and security policies for each type of card.

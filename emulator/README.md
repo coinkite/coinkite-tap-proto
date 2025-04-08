@@ -3,7 +3,7 @@
 A python emulator of a single card.
 
 - CVC: 123456
-- **TAPSIGNER<sup>&trade;</sup>** AES key: 41414141414141414141414141414141
+- **TAPSIGNER<sup>&reg;</sup>** AES key: 41414141414141414141414141414141
 - Precise error codes will differ from real product
 - _Completely_ insecure
 - Uses `wallycore` dependency for Bitcoin math (required dependencies are `automake` & `swig` you may also need `gsed` on MacOS)
