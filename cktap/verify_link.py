@@ -18,8 +18,21 @@ def all_keys(sig, md):
             raise
 
 def url_decoder(fragment):
-    # Takes the URL (after the # part) and verifies it
-    # and returns dict of useful values, or raise on errors/frauds
+    # Takes the URL (after the # part), checks it is self-consistent, and
+    # returns a dict of useful values, or raises on malformed input.
+    #
+    # What is checked: the signature in `s` is recovered against the message
+    # and the recovered key must match the other fields of the same URL -- the
+    # address suffix in `r` (SATSCARD) or the ident prefix in `c` (TAPSIGNER).
+    #
+    # What is NOT checked: the recovered key is never compared against
+    # FACTORY_ROOT_KEYS, because the certificate chain is not carried in the
+    # URL. `state`/`sealed`/`tampered` are taken verbatim from the `u` field.
+    # A URL that decodes without raising therefore proves only internal
+    # consistency, not that it came from a genuine Coinkite card.
+    #
+    # To establish that a card is genuine, talk to it (NFC/USB) and run the
+    # certificate check -- see verify_certs() in cktap/utils.py.
     from urllib.parse import parse_qsl
 
     assert '#' not in fragment

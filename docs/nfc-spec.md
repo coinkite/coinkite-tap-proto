@@ -101,8 +101,8 @@ status explicitly.
 ## Code For Decoding
 
 From `../cktap`, see file [`verify_link.py`](../cktap/verify_link.py) which
-implements full decode and verification, including address recovery or
-card ident recovery.
+implements the decode and the self-consistency check, including address
+recovery or card ident recovery.
 
 ```python
 >>> from cktap.verify_link import url_decoder
@@ -122,3 +122,19 @@ card ident recovery.
 'YTIZ2-MQZZZ-XPA2D-I5OGH'
 
 ```
+
+### What the URL proves
+
+`url_decoder()` recovers the pubkey from `s` and requires it to agree with the
+other fields of the *same* URL: the address suffix `r`, or the ident prefix `c`.
+That makes the link internally consistent.
+
+It does not make the card genuine. The URL carries no certificate chain, so the
+recovered key is never checked against `FACTORY_ROOT_KEYS`, and `state` /
+`sealed` / `tampered` are read verbatim out of the `u` field. Anyone can sign
+their own values with their own key and publish the result on an NFC tag.
+
+If your application needs to know that a real Coinkite card is present, read the
+card over NFC or USB and run the certificate check -- `verify_certs()` in
+[`../cktap/utils.py`](../cktap/utils.py), as `proto.py` does. This is the
+verification step that [`protocol.md`](protocol.md) warns about skipping.
