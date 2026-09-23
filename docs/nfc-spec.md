@@ -137,9 +137,4 @@ their own values with their own key and publish the result on an NFC tag.
 If your application needs to know that a real Coinkite card is present, read the
 card over NFC or USB and run the certificate check -- `verify_certs()` in
 [`../cktap/utils.py`](../cktap/utils.py), as `proto.py` does. This is the
-verification step that [`protocol.md`](protocol.md) warns about skipping:
-
-> It's important to implement the verification steps in the reference clients.
-> Experience has shown that devs will not bother to implement the verification
-> steps. The consequence is that fraudulent devices can be fielded by third
-> parties when they are used with those weaker apps.
+verification step that [`protocol.md`](protocol.md) warns about skipping.
