@@ -195,6 +195,11 @@ To see more detail, include the CVC on the command line.
 
 ## For both SATSCARD and TAPSIGNER
 
+`cktap address`
+- [SC] Show current deposit address (or public key).
+- [TS] Show native SegWit address (or public key) at the current card path
+  or the full derivation path provided with `--path`.
+
 `cktap status`
 - Shows status info.
 
@@ -265,7 +270,9 @@ Options:
   --help                   Show this message and exit.
 
 Commands:
-  address  [SC] Show current deposit address
+  address  [SC] Show current deposit address (or public key).
+           [TS] Show native SegWit address (or public key) at the current card
+           path or the full derivation path provided with --path.
   backup   [TS] Backup private key from card into AES-128-CTR encrypted file
   balance  [SC] Show the balance held on all slots
   certs    Check this card was made by Coinkite: Verifies a certificate...

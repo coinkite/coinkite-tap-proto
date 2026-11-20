@@ -350,13 +350,35 @@ def get_usage(cvc):
         # Display slot as n + 1
         print('%3d   | %-8s | %s' % (to_ui_slot(slot), status, addr or ''))
 
-@main.command('address')
+@main.command('address', # below multi-space is needed for nice help message render
+              short_help='[SC] Show current deposit address (or public key).                 [TS] Show native SegWit address (or public key) at the current card path or the full derivation path provided with --path.')
 @click.option('--slot', '-s', type=click.IntRange(min=1, max=10), metavar="#",
                                 default=None, help="Slot number (optional)")
 @click.option('--pubkey', '-p', is_flag=True, help="Show full pubkey instead of address")
-def get_addr(slot, pubkey):
-    "[SC] Show current deposit address"
-    card = get_card(only_satscard=True)
+@click.option('--path', type=str, metavar="m/84h/0h/0h/0/0",
+                help="[TS] Full derivation path; changes card derivation to its hardened prefix. Default: current card path.")
+@click.argument('cvc', type=str, metavar="(PIN code)", required=False)
+def get_addr(slot, pubkey, path, cvc):
+    card = get_card()
+    if card.is_tapsigner:
+        if slot is not None:
+            fail("Cannot use --slot for TAPSIGNER.")
+        cvc = cleanup_cvc(card, cvc)
+        try:
+            if path is not None:
+                xpub = card.derive_xpub_at_path(cvc, path)
+                pk = decode_base58_checksum(xpub)[-33:]
+            else:
+                pk = card.get_pubkey(cvc)
+        except ValueError as err:
+            fail(str(err))
+        if pk is None:
+            fail("Card not yet setup and has no address nor pubkey.")
+        click.echo(B2A(pk) if pubkey else render_address(pk, card.is_testnet))
+        return
+
+    if path is not None:
+        fail("Cannot use --path for SATSCARD.")
     be_slot = to_be_slot(slot)
 
     if not pubkey:
