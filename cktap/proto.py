@@ -308,10 +308,14 @@ class CKTapCard:
         self._set_derivation(path=hardened, cvc=cvc)
 
         xpub = self.get_xpub(cvc)
+        hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
+        # Authenticate the on-card key before trusting the xpub for derivation.
+        if hd.sec() != self.get_pubkey(cvc):
+            raise ValueError("XPUB verification failed")
+
         if not non_hardened:
             return xpub
 
-        hd = PubKeyNode.parse(xpub, testnet=self.is_testnet)
         # now derive subpath
         hd0 = hd.get_extended_pubkey_from_path(non_hardened)
         return hd0.extended_public_key()
